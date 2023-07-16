@@ -13,18 +13,27 @@ a. videocalling<br>
 b. online chatting
 
 c. white board
+
 d. screen share
+
 e. onlin eimage generator
+
 f. online codespace
+
 g. chatgpt
+
 h. Paragraph generator
+
 i. Online-js converor
 
 ## Upcoming features
 
 a. Automaic attendance features
+
 b. Double layer Authentication features
+
 c. Responsive frontend design
+
 d. Easily upgradable features
 
 ## Contributions
