@@ -1,11 +1,9 @@
 # quickmeet
 A video chat/meeting webapp using WebRTC and WebSockets (socket.io). Basically a Google Meet clone + a collaborative whiteboard.
 <br><br>
-<img align="center" src="https://i.imgur.com/FxgApJU.jpg">
+<img align="center" src="https://github.com/Aayush63777/web-meet/blob/main/public/css/meet.png">
 
-<img align="center" src="https://i.imgur.com/tMAaFpF.jpg">
-
-<img align="center" src="https://i.imgur.com/YvvA08O.jpg">
+<img align="center" src="https://github.com/Aayush63777/web-meet/blob/main/public/css/meet 2.png">
 
 ## Current Features?
 
