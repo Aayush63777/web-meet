@@ -8,8 +8,10 @@ WebSockets and WebRTC are used in a video meeting webapp (socket.io). Basically 
 ## Features
 
 The feature of the digital communication web app incudes🥇
-a. videocalling
+a. videocalling<br>
+
 b. online chatting
+
 c. white board
 d. screen share
 e. onlin eimage generator
