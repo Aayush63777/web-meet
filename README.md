@@ -1,6 +1,7 @@
 # Digital communication
 WebSockets and WebRTC are used in a video meeting webapp (socket.io). Basically a collaborative whiteboard + a Google Meet clone. It includes nice features including the chatgpt functionality and online codespace capable of working in al enviroments.
 <br><br>
+
 <img align="center" src="https://github.com/Aayush63777/web-meet/blob/main/public/css/meet.png">
 
 <img align="center" src="https://github.com/Aayush63777/web-meet/blob/main/public/css/meet 2.png">
