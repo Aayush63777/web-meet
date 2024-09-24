@@ -1,5 +1,5 @@
 # Online Web Meet
-WebSockets and WebRTC are used in a video meeting webapp (socket.io). Basically a collaborative whiteboard + a Google Meet clone. It includes nice features including the chatgpt functionality and online codespace capable of working in al enviroments.
+Online Web Meet is a fully-featured video conferencing and collaborative platform, similar to Google Meet, built using React.js and Node.js with integrated WebSockets and WebRTC for real-time communication. It supports a collaborative whiteboard and a powerful online codespace that works across all environments, offering smooth interaction in a professional virtual meeting setting.
 <br><br>
 
 <img align="center" src="https://github.com/Aayush63777/web-meet/blob/main/public/css/meet.png">
