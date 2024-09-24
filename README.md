@@ -30,14 +30,11 @@ i. Online-js converor
 
 ## Upcoming features
 
-a. Automaic attendance features
-
-b. Double layer Authentication features
-
-c. Responsive frontend design
-
-d. Easily upgradable features
+a. Automatic Attendance
+b. Double Layer Authentication
+c. Responsive Frontend Design
+d. Easily Upgradable
 
 ## Contributions
 
-I welcome contributions from the community! Feel free to submit a Pull Request (PR) if you’d like to improve the app, add new features, or fix any issues. Let’s collaborate and make this platform even better!
+I welcome contributions from the community! Feel free to submit a Pull Request (PR) if you’d like to improve the app, add new features, or fix any issues. Let’s collaborate and make this platform even better.
