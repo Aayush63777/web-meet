@@ -31,8 +31,11 @@ i. Online-js converor
 ## Upcoming features
 
 a. Automatic Attendance
+
 b. Double Layer Authentication
+
 c. Responsive Frontend Design
+
 d. Easily Upgradable
 
 ## Contributions
