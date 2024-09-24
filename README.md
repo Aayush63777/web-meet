@@ -40,4 +40,4 @@ d. Easily upgradable features
 
 ## Contributions
 
-Feel free to make a PR.
+I welcome contributions from the community! Feel free to submit a Pull Request (PR) if you’d like to improve the app, add new features, or fix any issues. Let’s collaborate and make this platform even better!
