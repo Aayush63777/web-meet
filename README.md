@@ -9,24 +9,23 @@ Online Web Meet is a fully-featured video conferencing and collaborative platfor
 
 ## Features
 
-The feature of the digital communication web app incudes🥇
-a. videocalling<br>
+a. Video Calling: Seamless video conferencing for virtual meetings.
 
-b. online chatting
+b. Online Chatting: Real-time messaging during video calls.
 
-c. white board
+c. Whiteboard: Collaborative whiteboard for brainstorming and teaching.
 
-d. screen share
+d. Screen Sharing: Share your screen with others during the meeting.
 
-e. onlin eimage generator
+e. Online Image Generator: Generate images on the fly directly in the app.
 
-f. online codespace
+f. Online Codespace: Integrated IDE that supports live coding in multiple environments.
 
-g. chatgpt
+g. ChatGPT Integration: AI-driven assistant for helping with tasks and generating ideas.
 
-h. Paragraph generator
+h. Paragraph Generator: Create paragraphs quickly for content or writing tasks.
 
-i. Online-js converor
+i. Online JS Converter: Convert JavaScript code online within the app.
 
 ## Upcoming features
 
