@@ -7,38 +7,51 @@
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://kit.fontawesome.com/6510466b6c.js" crossorigin="anonymous"></script>
+    <!-- FIX #9: Replaced Font Awesome kit (no SRI support) with pinned CDNJS release + SRI hash -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0"
+          crossorigin="anonymous">
 
 </head>
 
 <body>
-    <navbar>
-        <div class="logo">ComeCollab</div>
-    </navbar>
-    <div class="landing"> -->
-        <div class="head-cont unselectable">
-            Welcome to QuickMeet!
-        </div>
+    <div class="landing-shell">
+        <navbar>
+            <div class="logo">ComeCollab</div>
+            <div class="nav-pill">Realtime collaboration</div>
+        </navbar>
 
         <div class="main">
             <div class="create-join">
-                <div class="text"><div class="head">Create Video Meetings in one-click.</div>
-                <div class="subtext">No sign ups required. Open Source platform.</div>
+                <div class="text">
+                    <div class="head">Create immersive meetings in one click.</div>
+                    <div class="subtext">Host video calls, chat live, and collaborate in a shared whiteboard—without signups.</div>
                 </div>
-                <button id="createroom" class="createroom-butt unselectable">Create Room</button><br>
-                <input type="text" name="room" spellcheck="false" placeholder="Enter Room Code" id="roomcode" class="roomcode"><br>
+        <button id="createroom" class="createroom-butt unselectable">
+                    <i class="fas fa-plus-circle"></i> &nbsp;Create New Room
+                </button>
+                <input type="text" name="room" spellcheck="false" placeholder="Enter Room Code" id="roomcode" class="roomcode">
                 <div class="joinroom unselectable" id="joinroom">Join Room</div>
+                <div class="feature-list">
+                    <div class="feature-card"><i class="fas fa-video"></i><span>Video calls</span></div>
+                    <div class="feature-card"><i class="fas fa-comment"></i><span>Live chat</span></div>
+                    <div class="feature-card"><i class="fas fa-chalkboard"></i><span>Shared board</span></div>
+                </div>
             </div>
             <div class="video-cont">
-                <video class="video-self" autoplay muted playsinline></video>
-                <div class="settings">
-                    <div class="device" id="mic"><i class="fas fa-microphone"></i></div>
-                    <div class="device" id="webcam"><i class="fas fa-video"></i></div>
+                <div class="preview-card">
+                    <video class="video-self" autoplay muted playsinline></video>
+                    <div class="settings">
+                        <div class="device" id="mic"><i class="fas fa-microphone"></i></div>
+                        <div class="device" id="webcam"><i class="fas fa-video"></i></div>
+                    </div>
                 </div>
             </div>
         </div>
+    </div>
 
-<!--         <!-- <div class="main-cont">
+        <!-- <div class="main-cont">
 
             <form class="roomform" action="room.html" method="GET">
                 <div class="formcont">
@@ -53,9 +66,7 @@
 
     <!-- </div> -->
 
-<!--     <script src="js/landing.js"></script> -->
+    <script src="js/landing.js"></script>
 </body>
 
 </html>
-
-

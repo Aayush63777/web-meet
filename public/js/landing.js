@@ -5,108 +5,175 @@ const joinBut = document.querySelector('#joinroom');
 const mic = document.querySelector('#mic');
 const cam = document.querySelector('#webcam');
 
-let micAllowed = 1;
-let camAllowed = 1;
+let micAllowed = true;
+let camAllowed = true;
+let mediaStream = null;
 
-let mediaConstraints = { video: true, audio: true };
-
-navigator.mediaDevices.getUserMedia(mediaConstraints)
-    .then(localstream => {
-        videoCont.srcObject = localstream;
-    })
-
-function uuidv4() {
-    return 'xxyxyxxyx'.replace(/[xy]/g, function (c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+// Generate UUID v4 using crypto API
+function generateRoomId() {
+    return crypto.randomUUID();
 }
 
-const createroomtext = 'Creating Room...';
+// Get user media with error handling
+async function getMediaStream(constraints) {
+    try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (error) {
+        console.error('Media access error:', error);
+        if (error.name === 'NotAllowedError') {
+            alert('Camera/Microphone access denied. Please enable permissions.');
+        } else if (error.name === 'NotFoundError') {
+            alert('No camera or microphone found.');
+        } else {
+            alert('Failed to access media devices.');
+        }
+        return null;
+    }
+}
 
+// Initialize camera preview
+async function initializeMediaPreview() {
+    const stream = await getMediaStream({ video: true, audio: true });
+    if (stream) {
+        videoCont.srcObject = stream;
+        mediaStream = stream;
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initializeMediaPreview();
+});
+
+// Handle create room
 createButton.addEventListener('click', (e) => {
     e.preventDefault();
     createButton.disabled = true;
-    createButton.innerHTML = 'Creating Room';
-    createButton.classList = 'createroom-clicked';
+    const createroomtext = 'Creating Room...';
+    let charIndex = 0;
+    let isAdding = true;
 
-    setInterval(() => {
-        if (createButton.innerHTML < createroomtext) {
-            createButton.innerHTML = createroomtext.substring(0, createButton.innerHTML.length + 1);
+    const animationInterval = setInterval(() => {
+        if (isAdding) {
+            if (charIndex < createroomtext.length) {
+                createButton.textContent = createroomtext.substring(0, charIndex + 1);
+                charIndex++;
+            } else {
+                isAdding = false;
+            }
+        } else {
+            if (charIndex > 0) {
+                createButton.textContent = createroomtext.substring(0, charIndex - 1);
+                charIndex--;
+            } else {
+                isAdding = true;
+            }
         }
-        else {
-            createButton.innerHTML = createroomtext.substring(0, createButton.innerHTML.length - 3);
-        }
-    }, 500);
+    }, 100);
 
-    //const name = nameField.value;
-    location.href = `/room.html?room=${uuidv4()}`;
+    // Stop animation and navigate
+    setTimeout(() => {
+        clearInterval(animationInterval);
+        const roomId = generateRoomId();
+        window.location.href = `/room.html?room=${encodeURIComponent(roomId)}`;
+    }, 2000);
 });
 
+// Handle join room
 joinBut.addEventListener('click', (e) => {
     e.preventDefault();
-    if (codeCont.value.trim() == "") {
+    const trimmedCode = codeCont.value.trim();
+
+    if (!trimmedCode) {
         codeCont.classList.add('roomcode-error');
+        codeCont.focus();
         return;
     }
-    const code = codeCont.value;
-    location.href = `/room.html?room=${code}`;
-})
 
-codeCont.addEventListener('change', (e) => {
-    e.preventDefault();
+    codeCont.classList.remove('roomcode-error');
+    window.location.href = `/room.html?room=${encodeURIComponent(trimmedCode)}`;
+});
+
+// Remove error on input change
+codeCont.addEventListener('input', () => {
     if (codeCont.value.trim() !== "") {
         codeCont.classList.remove('roomcode-error');
-        return;
     }
-})
+});
 
-cam.addEventListener('click', () => {
-    if (camAllowed) {
-        mediaConstraints = { video: false, audio: micAllowed ? true : false };
-        navigator.mediaDevices.getUserMedia(mediaConstraints)
-            .then(localstream => {
-                videoCont.srcObject = localstream;
-            })
-
-        cam.classList = "nodevice";
-        cam.innerHTML = `<i class="fas fa-video-slash"></i>`;
-        camAllowed = 0;
+// Handle camera toggle
+cam.addEventListener('click', async () => {
+    try {
+        if (camAllowed) {
+            // Disable camera
+            const stream = await getMediaStream({ 
+                video: false, 
+                audio: micAllowed 
+            });
+            if (stream) {
+                videoCont.srcObject = stream;
+                mediaStream = stream;
+                cam.classList.add('nodevice');
+                cam.innerHTML = '<i class="fas fa-video-slash"></i>';
+                camAllowed = false;
+            }
+        } else {
+            // Enable camera
+            const stream = await getMediaStream({ 
+                video: true, 
+                audio: micAllowed 
+            });
+            if (stream) {
+                videoCont.srcObject = stream;
+                mediaStream = stream;
+                cam.classList.remove('nodevice');
+                cam.innerHTML = '<i class="fas fa-video"></i>';
+                camAllowed = true;
+            }
+        }
+    } catch (error) {
+        console.error('Camera toggle error:', error);
     }
-    else {
-        mediaConstraints = { video: true, audio: micAllowed ? true : false };
-        navigator.mediaDevices.getUserMedia(mediaConstraints)
-            .then(localstream => {
-                videoCont.srcObject = localstream;
-            })
+});
 
-        cam.classList = "device";
-        cam.innerHTML = `<i class="fas fa-video"></i>`;
-        camAllowed = 1;
+// Handle microphone toggle
+mic.addEventListener('click', async () => {
+    try {
+        if (micAllowed) {
+            // Disable audio
+            const stream = await getMediaStream({ 
+                video: camAllowed, 
+                audio: false 
+            });
+            if (stream) {
+                videoCont.srcObject = stream;
+                mediaStream = stream;
+                mic.classList.add('nodevice');
+                mic.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                micAllowed = false;
+            }
+        } else {
+            // Enable audio
+            const stream = await getMediaStream({ 
+                video: camAllowed, 
+                audio: true 
+            });
+            if (stream) {
+                videoCont.srcObject = stream;
+                mediaStream = stream;
+                mic.classList.remove('nodevice');
+                mic.innerHTML = '<i class="fas fa-microphone"></i>';
+                micAllowed = true;
+            }
+        }
+    } catch (error) {
+        console.error('Microphone toggle error:', error);
     }
-})
+});
 
-mic.addEventListener('click', () => {
-    if (micAllowed) {
-        mediaConstraints = { video: camAllowed ? true : false, audio: false };
-        navigator.mediaDevices.getUserMedia(mediaConstraints)
-            .then(localstream => {
-                videoCont.srcObject = localstream;
-            })
-
-        mic.classList = "nodevice";
-        mic.innerHTML = `<i class="fas fa-microphone-slash"></i>`;
-        micAllowed = 0;
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
     }
-    else {
-        mediaConstraints = { video: camAllowed ? true : false, audio: true };
-        navigator.mediaDevices.getUserMedia(mediaConstraints)
-            .then(localstream => {
-                videoCont.srcObject = localstream;
-            })
-
-        mic.innerHTML = `<i class="fas fa-microphone"></i>`;
-        mic.classList = "device";
-        micAllowed = 1;
-    }
-})
+});

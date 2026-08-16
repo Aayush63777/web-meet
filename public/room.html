@@ -1,132 +1,503 @@
 <!DOCTYPE html>
-
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>QuickMeet Room</title>
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>QuickMeet — Room</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <script src="https://kit.fontawesome.com/6510466b6c.js" crossorigin="anonymous"></script>
+    <!-- FIX #9: SRI hash locks this CDN resource to the exact file we audited -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0"
+          crossorigin="anonymous">
     <script>
-        const params = new URLSearchParams(location.search);
-        if (!params.get("room")) location.href = "/";
+        const roomParams = new URLSearchParams(location.search);
+        if (!roomParams.get("room")) location.href = "/";
     </script>
 </head>
-
 <body>
-    <div class="overlay" id="overlay">
-        <div class="box">
-            <div class="head-name">Enter a Name</div>
-            <input type="text" class="name-field" placeholder="Type here.." id="name-field"></input><br>
-            <button class="continue-name">Continue</button>
 
+<!-- ══════════════════════════════════════════════
+     JOIN OVERLAY  — "Ready to join?" card
+══════════════════════════════════════════════ -->
+<div class="overlay" id="overlay">
+    <div class="box">
+        <div class="overlay-logo">
+            <i class="fas fa-video"></i> QuickMeet
         </div>
+        <h2 class="head-name">Ready to join?</h2>
+        <input  type="text"
+                class="name-field"
+                id="name-field"
+                placeholder="Enter your name…"
+                autocomplete="off"
+                maxlength="40">
+        <button class="continue-name">
+            <i class="fas fa-arrow-right"></i>&nbsp;Join now
+        </button>
+        <p class="overlay-note">Camera &amp; mic will be requested after joining.</p>
     </div>
-    <div class="container-room">
-        <div class="left-cont">
+</div>
 
+<!-- ══════════════════════════════════════════════
+     RECONNECT BANNER  (hidden until socket drops)
+══════════════════════════════════════════════ -->
+<div id="reconnect-banner" class="hidden">
+    <i class="fas fa-exclamation-triangle"></i>
+    Connection lost — reconnecting…
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MAIN ROOM
+══════════════════════════════════════════════ -->
+<div class="container-room" id="container-room">
+
+    <!-- ════════════════ LEFT PANEL ════════════════ -->
+    <div class="left-cont">
+
+        <!-- ── TOP BAR ────────────────────────────── -->
+        <!--
+            Google Meet layout:
+            LEFT  → logo + "Live" badge + participant count
+            CENTER → room-code chip (click to copy)
+            RIGHT  → meeting clock + mobile-menu
+        -->
+        <div class="meeting-topbar">
+
+            <!-- Left -->
+            <div class="topbar-left">
+                <div class="meeting-title">
+                    <i class="fas fa-video qm-icon"></i>
+                    <span class="qm-name">QuickMeet</span>
+                </div>
+                <div class="meeting-badges">
+                    <span class="badge badge-live">
+                        <i class="fas fa-circle pulse-dot"></i> Live
+                    </span>
+                    <span class="badge badge-count">
+                        <i class="fas fa-people-group"></i>
+                        <span class="meeting-status">0</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Center — room code -->
+            <div class="topbar-center">
+                <div class="room-id-display" onclick="CopyClassText()" title="Click to copy room code">
+                    <i class="fas fa-link"></i>
+                    <span class="roomcode-chip">—</span>
+                    <i class="fas fa-copy copy-hint"></i>
+                </div>
+            </div>
+
+            <!-- Right — clock + mobile toggle -->
+            <div class="topbar-right">
+                <span class="meeting-clock" id="meeting-clock">00:00</span>
+                <!-- People/Chat toggle — always visible, opens sidebar on all screen sizes -->
+                <button class="topbar-icon-btn" id="chat-toggle-btn" title="Chat & People">
+                    <i class="fas fa-comment-alt"></i>
+                </button>
+                <button class="mobile-menu-btn" id="mobile-menu-btn" title="More options">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+            </div>
+
+        </div><!-- /meeting-topbar -->
+
+        <!-- ── VIDEO AREA ──────────────────────────── -->
+        <div class="video-area">
+
+            <!-- Video grid — JS switches class to video-cont when >1 peer -->
             <div class="video-cont-single" id="vcont">
-                <div class="video-box">
-                    <video class="video-frame" id="vd1" autoplay playsinline>
-                    </video>
-                    <div class="nametag" id="myname">yourname</div>
-                    <div class="mute-icon" id="mymuteicon"><i class="fas fa-microphone-slash"></i></div>
-                    <div class="video-off" id="myvideooff">Video Off</div>
+
+                <!-- Local video tile -->
+                <div class="video-box" id="my-video-box">
+                    <video class="video-frame" id="vd1" autoplay playsinline muted></video>
+
+                    <!-- Name tag -->
+                    <div class="nametag" id="myname">You</div>
+
+                    <!-- Mic-muted indicator (bottom-right red circle) -->
+                    <div class="mute-icon" id="mymuteicon" style="visibility:hidden">
+                        <i class="fas fa-microphone-slash"></i>
+                    </div>
+
+                    <!-- Camera-off overlay (shows avatar + label) -->
+                    <div class="video-off" id="myvideooff" style="visibility:hidden">
+                        <div class="video-avatar" id="my-avatar">?</div>
+                        <span class="cam-off-label">Camera off</span>
+                    </div>
+                </div>
+
+            </div><!-- /vcont -->
+
+            <!-- Whiteboard overlay — toggled by .board-icon button -->
+            <div class="whiteboard-cont" id="whiteboard-cont">
+                <canvas id="whiteboard"></canvas>
+                <div class="wb-toolbar">
+                    <div class="wb-colors">
+                        <div class="wb-swatch black"  onclick="setColor('black')"   title="Black"></div>
+                        <div class="wb-swatch red"    onclick="setColor('#ea4335')" title="Red"></div>
+                        <div class="wb-swatch yellow" onclick="setColor('#fbbc04')" title="Yellow"></div>
+                        <div class="wb-swatch green"  onclick="setColor('#34a853')" title="Green"></div>
+                        <div class="wb-swatch blue"   onclick="setColor('#4285f4')" title="Blue"></div>
+                        <div class="wb-swatch orange" onclick="setColor('#fa7b17')" title="Orange"></div>
+                        <div class="wb-swatch purple" onclick="setColor('#a142f4')" title="Purple"></div>
+                        <div class="wb-swatch pink"   onclick="setColor('#e52592')" title="Pink"></div>
+                    </div>
+                    <div class="wb-sep"></div>
+                    <div class="wb-tools">
+                        <button class="wb-btn" onclick="setEraser()">
+                            <i class="fas fa-eraser"></i> Eraser
+                        </button>
+                        <button class="wb-btn wb-danger" onclick="clearBoard()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                        <button class="wb-btn" onclick="toggleBoard()">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                </div>
+            </div><!-- /whiteboard-cont -->
+
+        </div><!-- /video-area -->
+
+        <!-- ── TOOLBAR ─────────────────────────────── -->
+        <!--
+            Google Meet layout:
+            LEFT   → meeting clock  (tbar-clock)
+            CENTER → action circles (mic, camera, share, hand, board, IDE, record, leave)
+            RIGHT  → capacity control
+        -->
+        <div class="toolbar" id="toolbar">
+
+            <!-- Left: clock -->
+            <div class="tbar-left">
+                <span class="tbar-clock" id="toolbar-clock">00:00</span>
+            </div>
+
+            <!-- Center: all controls -->
+            <div class="tbar-center">
+
+                <!-- Microphone -->
+                <button class="tbtn tbtn-teal audio" data-tip="Mic (M)">
+                    <i class="fas fa-microphone"></i>
+                    <span class="btn-lbl">Mic</span>
+                </button>
+
+                <!-- Camera -->
+                <button class="tbtn tbtn-teal novideo" data-tip="Camera (V)">
+                    <i class="fas fa-video"></i>
+                    <span class="btn-lbl">Camera</span>
+                </button>
+
+                <div class="tbar-divider"></div>
+
+                <!-- Screen share -->
+                <button class="tbtn tbtn-slate screenshare" data-tip="Share screen (S)">
+                    <i class="fas fa-desktop"></i>
+                    <span class="btn-lbl">Present</span>
+                </button>
+
+                <!-- Raise hand -->
+                <button class="tbtn tbtn-amber raise-hand" data-tip="Raise hand (H)">
+                    <i class="fas fa-hand-paper"></i>
+                    <span class="btn-lbl">Raise hand</span>
+                </button>
+
+                <!-- Whiteboard -->
+                <button class="tbtn tbtn-emerald board-icon" data-tip="Whiteboard (W)">
+                    <i class="fas fa-chalkboard"></i>
+                    <span class="btn-lbl">Board</span>
+                </button>
+
+                <!-- Code IDE -->
+                <button class="tbtn tbtn-blue ide-btn" data-tip="Code IDE (I)">
+                    <i class="fas fa-code"></i>
+                    <span class="btn-lbl">IDE</span>
+                </button>
+
+                <!-- Record -->
+                <button class="tbtn tbtn-orange record-btn" data-tip="Record (R)">
+                    <i class="fas fa-record-vinyl"></i>
+                    <span class="btn-lbl">Record</span>
+                </button>
+
+                <div class="tbar-divider"></div>
+
+                <!-- Leave -->
+                <button class="tbtn tbtn-red cutcall" data-tip="Leave call (L)">
+                    <i class="fas fa-phone-slash"></i>
+                    <span class="btn-lbl">Leave</span>
+                </button>
+
+            </div><!-- /tbar-center -->
+
+            <!-- Right: capacity -->
+            <div class="tbar-right">
+                <div class="capacity-wrap">
+                    <span class="capacity-info" id="capacity-info">Max 200</span>
+                    <input type="number" id="capacity-input" min="2" max="500" value="200">
+                    <button id="capacity-apply">Set</button>
                 </div>
             </div>
 
-            <div class="whiteboard-cont"><canvas id="whiteboard" height="1000" width="1000"></canvas>
-                <div class="colors-cont">
-                    <div class="black" onclick="setColor('black')"></div>
-                    <div class="red" onclick="setColor('#e74c3c')"></div>
-                    <div class="yellow" onclick="setColor('#f1c40f')"></div>
-                    <div class="green" onclick="setColor('#badc58')"></div>
-                    <div class="blue" onclick="setColor('#3498db')"></div>
-                    <div class="orange" onclick="setColor('#e67e22')"></div>
-                    <div class="purple" onclick="setColor('#9b59b6')"></div>
-                    <div class="pink" onclick="setColor('#fd79a8')"></div>
-                    <div class="brown" onclick="setColor('#834c32')"></div>
-                    <div class="grey" onclick="setColor('gray')"></div>
-                    <div class="eraser" onclick="setEraser()"><i class="fas fa-eraser"></i></div>
-                    <div class="clearboard" onclick="clearBoard()"><i class="fas fa-trash-alt"></i></div>
-                </div>
+        </div><!-- /toolbar -->
+
+        <!-- ── MOBILE BOTTOM SHEET ─────────────────── -->
+        <div class="mobile-sheet" id="mobile-sheet">
+            <div class="sheet-header">
+                <span>Controls</span>
+                <button id="mobile-sheet-close">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-
-            <div class="footer">
-                <div class="utils">
-
-                    <div class="audio">
-                        <i class="fas fa-microphone"></i>
-                    </div>
-                    <div class="novideo">
-                        <i class="fas fa-video"></i>
-                    </div>
-
-                    <div class="codespace" onclick="openLink('https://gaurav-chatgpt.cyclic.app/')">
-                        <i class="fas fa-solid fa-code"></i>
-                      </div>                      
-
-                    <div class="aibot" onclick="openLink2('https://codebackend-4qb2.onrender.com')">
-                        <i class="fa fa-comment"></i>
-                    </div>
-                    <div class="screenshare tooltip">
-                        <i class="fas fa-desktop"></i>
-                        <span class="tooltiptext">Share Screen</span>
-                    </div>
-
-
-                    <div class="board-icon tooltip">
-                        <i class="fas fa-chalkboard"></i>
-                        <span class="tooltiptext">Whiteboard</span>
-                    </div>
-                    <div class="cutcall tooltip">
-                        <i class="fas fa-phone-slash"></i>
-                        <span class="tooltiptext">Leave Call</span>
-                    </div>
-
-
-                </div>
-                <div class="copycode-cont">
-                    <div class="roomcode"></div>
-                    <button class="copycode-button" onclick="CopyClassText()">Copy Code</button>
-                </div>
+            <div class="sheet-grid">
+                <button class="sheet-btn audio">
+                    <i class="fas fa-microphone"></i><span>Mic</span>
+                </button>
+                <button class="sheet-btn novideo">
+                    <i class="fas fa-video"></i><span>Camera</span>
+                </button>
+                <button class="sheet-btn screenshare">
+                    <i class="fas fa-desktop"></i><span>Present</span>
+                </button>
+                <button class="sheet-btn raise-hand">
+                    <i class="fas fa-hand-paper"></i><span>Hand</span>
+                </button>
+                <button class="sheet-btn board-icon">
+                    <i class="fas fa-chalkboard"></i><span>Board</span>
+                </button>
+                <button class="sheet-btn ide-btn">
+                    <i class="fas fa-code"></i><span>IDE</span>
+                </button>
+                <button class="sheet-btn record-btn">
+                    <i class="fas fa-record-vinyl"></i><span>Record</span>
+                </button>
+                <button class="sheet-btn cutcall sheet-leave">
+                    <i class="fas fa-phone-slash"></i><span>Leave</span>
+                </button>
             </div>
+        </div><!-- /mobile-sheet -->
 
+    </div><!-- /left-cont -->
 
+    <!-- ════════════════ RIGHT PANEL: Chat + People ════════════════ -->
+    <div class="right-cont" id="right-cont">
+
+        <!-- Tab bar -->
+        <div class="panel-tabs">
+            <button class="tab-btn active-tab chats">
+                <i class="fas fa-comment-alt"></i> Chat
+                <span class="unread-badge" style="display:none"></span>
+            </button>
+            <button class="tab-btn attendies">
+                <i class="fas fa-people-group"></i> People
+            </button>
+            <button class="panel-close-btn" id="panel-close-btn" title="Close panel">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
 
-        <div class="right-cont">
-            <div class="head-title">
-
-                <div class="chats"><i class="fas fa-comment-alt mr-1"></i>Chats</div>
-                <div class="attendies"><i class="fas fa-users mr-1"></i>Attendies</div>
-
-
-            </div>
-
-            <div class="chat-cont">
-
-            </div>
-            <div class="chat-input-cont">
-                <div class="ci-cont"><input type="text" class="chat-input" placeholder="Type chat here.."></div>
-                <div class="ci-send"><button class="chat-send">Send</button></div>
-            </div>
+        <!-- Chat messages -->
+        <div class="chat-cont-wrap">
+            <div class="chat-cont"></div>
         </div>
-    </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="js/room.js"></script>
+
+        <!-- Attendee list (hidden until People tab selected) -->
+        <div class="attendee-list-panel hidden">
+            <div class="attendee-title">In this call</div>
+            <div class="attendee-list" id="attendee-list"></div>
+        </div>
+
+        <!-- Message input -->
+        <div class="chat-input-cont">
+            <input  type="text"
+                    class="chat-input"
+                    placeholder="Send a message to everyone…"
+                    autocomplete="off">
+            <button class="chat-send" title="Send">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+
+    </div><!-- /right-cont -->
+
+    <!-- ════════════════ IDE PANEL ════════════════ -->
+    <div class="ide-panel hidden" id="ide-panel">
+
+        <div class="ide-header">
+            <div class="ide-header-top">
+
+                <!-- Title -->
+                <div class="ide-title">
+                    <i class="fas fa-terminal"></i>
+                    <span>Code IDE</span>
+                </div>
+
+                <!-- Language tabs -->
+                <div class="ide-lang-tabs" id="ide-lang-tabs">
+                    <button class="ide-lang-tab active" data-lang="javascript">
+                        <span class="lang-dot" style="background:#f7df1e"></span>JS
+                    </button>
+                    <button class="ide-lang-tab" data-lang="python">
+                        <span class="lang-dot" style="background:#3572A5"></span>Python
+                    </button>
+                    <button class="ide-lang-tab" data-lang="cpp">
+                        <span class="lang-dot" style="background:#f34b7d"></span>C++
+                    </button>
+                    <button class="ide-lang-tab" data-lang="java">
+                        <span class="lang-dot" style="background:#b07219"></span>Java
+                    </button>
+                    <button class="ide-lang-tab" data-lang="html">
+                        <span class="lang-dot" style="background:#e34c26"></span>HTML
+                    </button>
+                    <button class="ide-lang-tab" data-lang="css">
+                        <span class="lang-dot" style="background:#563d7c"></span>CSS
+                    </button>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="ide-actions">
+                    <button class="ide-action-btn ide-run-btn" id="ide-run">
+                        <i class="fas fa-play"></i><span>Run</span>
+                    </button>
+                    <button class="ide-action-btn ide-reset-btn" id="ide-reset" title="Reset to template">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="ide-action-btn ide-clear-btn" id="ide-clear" title="Clear output">
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                    <button class="ide-action-btn ide-close-btn" id="ide-close" title="Close IDE">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+            </div><!-- /ide-header-top -->
+
+            <!-- Info bar -->
+            <div class="ide-info-bar" id="ide-lang-bar">
+                <span class="lang-badge" id="lang-badge">JavaScript</span>
+                <span class="lang-desc"  id="lang-desc">Runs in browser sandbox — instant execution, no network</span>
+                <span class="ide-shortcut">Ctrl+Enter to run</span>
+            </div>
+
+        </div><!-- /ide-header -->
+
+        <div class="ide-body">
+
+            <!-- Editor column -->
+            <div class="ide-editor-col">
+                <div class="ide-file-bar">
+                    <span class="ide-file-name" id="ide-file-name">main.js</span>
+                    <span class="ide-cursor-pos" id="ide-cursor-pos">Ln 1, Col 1</span>
+                </div>
+                <div class="ide-editor-wrap">
+                    <div  class="ide-line-nums" id="ide-line-nums">1</div>
+                    <textarea class="ide-editor"   id="ide-editor"
+                              spellcheck="false"  autocomplete="off"
+                              autocorrect="off"   autocapitalize="off"
+                              placeholder="// Start coding…"></textarea>
+                </div>
+            </div>
+
+            <!-- Right column: stdin + output -->
+            <div class="ide-right-col">
+                <div class="ide-stdin-wrap" id="ide-stdin-wrap">
+                    <div class="ide-pane-label">
+                        <i class="fas fa-keyboard"></i> stdin
+                        <span class="ide-pane-hint">one value per line</span>
+                    </div>
+                    <textarea class="ide-stdin" id="ide-stdin"
+                              spellcheck="false" autocomplete="off"
+                              placeholder="Program input…&#10;e.g.&#10;Alice&#10;21"></textarea>
+                </div>
+                <div class="ide-output-wrap">
+                    <div class="ide-pane-label">
+                        <i class="fas fa-terminal"></i> Output
+                        <span class="ide-output-status" id="ide-status"></span>
+                        <span class="ide-exec-time"    id="ide-exec-time"></span>
+                    </div>
+                    <div class="ide-output" id="ide-output">
+                        <span class="ide-placeholder">Press Run to execute…</span>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /ide-body -->
+
+    </div><!-- /ide-panel -->
+
+</div><!-- /container-room -->
+
+<!-- ══════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════ -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/room.js"></script>
 <script>
-    function openLink(url) {
-        window.open(url, '_blank');
-      }  
-      function openLink2(url) {
-        window.open(url, '_blank');
-      }      
+/* ── Meeting clock (dual: topbar + toolbar) ── */
+(function () {
+    const s0 = Date.now();
+    const clocks = [
+        document.getElementById('meeting-clock'),
+        document.getElementById('toolbar-clock')
+    ];
+    setInterval(() => {
+        const s   = Math.floor((Date.now() - s0) / 1000);
+        const txt = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+        clocks.forEach(el => { if (el) el.textContent = txt; });
+    }, 1000);
+})();
+
+/* ── Keyboard shortcuts ── */
+document.addEventListener('keydown', e => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+    const map = {
+        m: '.audio',
+        v: '.novideo',
+        s: '.screenshare',
+        h: '.raise-hand',
+        w: '.board-icon',
+        i: '.ide-btn',
+        r: '.record-btn',
+        l: '.cutcall'
+    };
+    if (map[e.key.toLowerCase()]) {
+        document.querySelector(map[e.key.toLowerCase()])?.click();
+    }
+});
+
+/* ── Mobile sheet: mirror clicks to toolbar buttons ── */
+document.querySelectorAll('.sheet-btn').forEach(btn => {
+    const cls = Array.from(btn.classList)
+        .find(c => !['sheet-btn', 'sheet-leave'].includes(c));
+    if (cls) {
+        btn.addEventListener('click', () => {
+            document.querySelector('.tbtn.' + cls)?.click();
+            document.getElementById('mobile-sheet')?.classList.remove('sheet-open');
+        });
+    }
+});
+
+/* ── Mobile menu button ── */
+document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+    document.getElementById('mobile-sheet')?.classList.toggle('sheet-open');
+});
+document.getElementById('mobile-sheet-close')?.addEventListener('click', () => {
+    document.getElementById('mobile-sheet')?.classList.remove('sheet-open');
+});
+
+/* ── Panel close on mobile ── */
+document.getElementById('panel-close-btn')?.addEventListener('click', () => {
+    document.getElementById('right-cont')?.classList.remove('panel-open');
+});
+
+/* ── Chat/People toggle button in topbar ── */
+document.getElementById('chat-toggle-btn')?.addEventListener('click', () => {
+    document.getElementById('right-cont')?.classList.toggle('panel-open');
+});
 </script>
-
 </body>
-
 </html>
