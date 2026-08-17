@@ -1,6 +1,7 @@
 const createButton = document.querySelector("#createroom");
 const videoCont = document.querySelector('.video-self');
 const codeCont = document.querySelector('#roomcode');
+const passCont = document.querySelector('#roompassword');
 const joinBut = document.querySelector('#joinroom');
 const mic = document.querySelector('#mic');
 const cam = document.querySelector('#webcam');
@@ -91,7 +92,11 @@ joinBut.addEventListener('click', (e) => {
     }
 
     codeCont.classList.remove('roomcode-error');
-    window.location.href = `/room.html?room=${encodeURIComponent(trimmedCode)}`;
+    // Pass optional password as URL query param
+    const password = passCont ? passCont.value.trim() : '';
+    const url = `/room.html?room=${encodeURIComponent(trimmedCode)}` +
+                (password ? `&pwd=${encodeURIComponent(password)}` : '');
+    window.location.href = url;
 });
 
 // Remove error on input change

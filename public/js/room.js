@@ -7,6 +7,21 @@ const socket = io({
     reconnectionDelayMax:5000,
     reconnectionAttempts:10,
 });
+// Raise EventEmitter listener limits on all Socket.IO internal objects.
+// Called immediately AND on connect because engine is only available after connect.
+function raiseSocketListenerLimits() {
+    [socket, socket.io, socket.io?.engine, socket.io?.engine?.transport]
+        .forEach(t => {
+            if (t && typeof t.setMaxListeners === 'function') t.setMaxListeners(50);
+            if (t && t.emitter && typeof t.emitter.setMaxListeners === 'function') t.emitter.setMaxListeners(50);
+        });
+}
+raiseSocketListenerLimits();
+socket.on('connect', () => {
+    // Re-run after connect — engine.transport is now available
+    raiseSocketListenerLimits();
+    console.log('Socket connected:', socket.id);
+});
 
 // ── DOM ──────────────────────────────────────
 const myvideo          = document.querySelector('#vd1');
@@ -111,68 +126,9 @@ function updateMeetingStatus(roomInfo) {
     if (toolbarCode) toolbarCode.textContent = roomid;
 }
 
-function renderAttendees(participants = []) {
-    if (!attendeeList) return;
-    attendeeList.innerHTML = '';
-    if (!participants.length) {
-        attendeeList.innerHTML = '<div class="attendee-empty">No participants yet</div>';
-        return;
-    }
-    const frag = document.createDocumentFragment();
-    participants.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'attendee-item';
-
-        // Avatar circle with initials
-        const avatar = document.createElement('div');
-        avatar.className = 'attendee-avatar';
-        const initials = (p.username || 'P').slice(0, 2).toUpperCase();
-        avatar.textContent = initials;
-        // Deterministic color from name
-        const colors = ['#4285f4','#ea4335','#34a853','#fbbc04','#9b59b6','#fa7b17','#e91e63','#00bcd4'];
-        avatar.style.background = colors[(p.username || '').charCodeAt(0) % colors.length];
-
-        const nameEl = document.createElement('div');
-        nameEl.className = 'attendee-name';
-        // Mark self
-        const isSelf = p.socketId === socket.id;
-        nameEl.textContent = (p.username || 'Participant') + (isSelf ? ' (You)' : '');
-
-        const stateEl = document.createElement('div');
-        stateEl.className = 'attendee-state';
-
-        const mic = document.createElement('span');
-        mic.className = `status-pill ${p.mic === 'on' ? 'status-on' : 'status-off'}`;
-        mic.innerHTML = p.mic === 'on'
-            ? '<i class="fas fa-microphone"></i>'
-            : '<i class="fas fa-microphone-slash"></i>';
-        mic.title = p.mic === 'on' ? 'Mic on' : 'Mic off';
-
-        const cam = document.createElement('span');
-        cam.className = `status-pill ${p.video === 'on' ? 'status-on' : 'status-off'}`;
-        cam.innerHTML = p.video === 'on'
-            ? '<i class="fas fa-video"></i>'
-            : '<i class="fas fa-video-slash"></i>';
-        cam.title = p.video === 'on' ? 'Camera on' : 'Camera off';
-
-        // raised hand indicator
-        if (handInfo[p.socketId]) {
-            const hand = document.createElement('span');
-            hand.className = 'status-pill status-hand';
-            hand.textContent = '✋';
-            stateEl.appendChild(hand);
-        }
-
-        stateEl.appendChild(mic);
-        stateEl.appendChild(cam);
-
-        item.appendChild(avatar);
-        item.appendChild(nameEl);
-        item.appendChild(stateEl);
-        frag.appendChild(item);
-    });
-    attendeeList.appendChild(frag);
-}
+// renderAttendees is defined later (extended version with host controls)
+// This stub is replaced by the full implementation below
+function _renderAttendeesStub(participants = []) {}
 
 function createVideoElement(sid, uname, micState, vidState) {
     const box = document.createElement('div');
@@ -326,9 +282,6 @@ if (peopleTab)  peopleTab.addEventListener('click',  () => switchTab('people'));
 // ═══════════════════════════════════════════════
 // SOCKET: connection status
 // ═══════════════════════════════════════════════
-socket.on('connect', () => {
-    console.log('Socket connected:', socket.id);
-});
 socket.on('disconnect', () => {
     showToast('Disconnected from server. Reconnecting…', 'error');
 });
@@ -386,7 +339,10 @@ function moveDraw(x, y) {
 }
 function stopDraw() { isDrawing = false; }
 
-canvas.addEventListener('mousedown', e => startDraw(e.offsetX, e.offsetY));
+canvas.addEventListener('mousedown', e => {
+    // Use window.startDraw so whiteboard undo/redo patching works
+    (window.startDraw || startDraw)(e.offsetX, e.offsetY);
+});
 canvas.addEventListener('mousemove', e => moveDraw(e.offsetX, e.offsetY));
 window.addEventListener('mouseup',   () => stopDraw());
 
@@ -399,7 +355,7 @@ function getTouchPos(e) {
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     const p = getTouchPos(e);
-    startDraw(p.x, p.y);
+    (window.startDraw || startDraw)(p.x, p.y);
 }, { passive: false });
 canvas.addEventListener('touchmove', e => {
     e.preventDefault();
@@ -408,9 +364,30 @@ canvas.addEventListener('touchmove', e => {
 }, { passive: false });
 canvas.addEventListener('touchend', e => { e.preventDefault(); stopDraw(); }, { passive: false });
 
-// called from HTML onclick
-function setColor(c) { drawColor = c; drawSize = 3; }
-function setEraser()  { drawColor = 'white'; drawSize = 14; }
+// called from HTML onclick — also marks the swatch as selected
+function setColor(c) {
+    drawColor = c;
+    drawSize  = Number(document.getElementById('wb-size')?.value || 3);
+    // Mark matching swatch selected
+    document.querySelectorAll('.wb-swatch').forEach(sw => {
+        const attr = sw.getAttribute('onclick') || '';
+        const m    = attr.match(/setColor\('([^']+)'\)/);
+        if (m) {
+            sw.dataset.color = m[1];
+            sw.classList.toggle('selected', m[1] === c);
+        }
+    });
+    // Switch to pen tool
+    if (typeof window.setWbTool === 'function') window.setWbTool('pen');
+}
+function setEraser() {
+    if (typeof window.setWbTool === 'function') {
+        window.setWbTool('eraser');
+    } else {
+        drawColor = 'white';
+        drawSize  = 14;
+    }
+}
 function clearBoard() {
     if (!window.confirm('Clear the board? This cannot be undone.')) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -466,14 +443,25 @@ continueButt.addEventListener('click', () => {
     if (!name) { nameField.focus(); return; }
 
     username = name;
-    // BUG FIX: use display:'flex' so the overlay re-centers if re-shown
     overlayContainer.style.display    = 'none';
     overlayContainer.style.visibility = 'hidden';
 
     const mynameEl = document.querySelector('#myname');
     if (mynameEl) mynameEl.textContent = `${username} (You)`;
 
-    socket.emit('join room', roomid, username);
+    const avatarEl = document.querySelector('#my-avatar');
+    if (avatarEl) {
+        avatarEl.textContent = username.slice(0, 2).toUpperCase();
+        const colors = ['#4285f4','#ea4335','#34a853','#fbbc04','#9b59b6','#fa7b17','#e91e63','#00bcd4'];
+        avatarEl.style.background = colors[username.charCodeAt(0) % colors.length];
+    }
+
+    // Read optional password from URL (?pwd=) OR from the overlay input field
+    const roomPasswordField = document.querySelector('#room-password');
+    const urlPwd = urlParams.get('pwd') || '';
+    const overlayPwd = roomPasswordField ? roomPasswordField.value.trim() : '';
+    const roomPassword = overlayPwd || urlPwd || null;
+    socket.emit('join room', roomid, username, roomPassword || null);
 });
 
 nameField.addEventListener('keypress', e => {
@@ -533,6 +521,13 @@ async function startCall() {
 }
 
 function buildPeerConnection(sid) {
+    // Close and clean up any existing connection for this sid first
+    // to prevent MaxListenersExceeded from leaked RTCPeerConnection handlers
+    if (connections[sid]) {
+        try { connections[sid].close(); } catch (_) {}
+        delete connections[sid];
+    }
+
     const pc = new RTCPeerConnection(configuration);
     connections[sid] = pc;
 
@@ -750,18 +745,22 @@ if (raiseHandButt) {
         handRaised = !handRaised;
         socket.emit('raise hand', handRaised);
 
-        const icon  = raiseHandButt.querySelector('i');
-        if (icon)  icon.className = handRaised ? '' : 'fas fa-hand-paper';
-        if (icon && handRaised) icon.textContent = '✋';
+        // Google Meet style: icon changes, button colour changes, label stays fixed
+        const icon = raiseHandButt.querySelector('i');
+        if (icon) {
+            // Keep Font Awesome — just swap the icon
+            icon.className = handRaised ? 'fas fa-hand-paper' : 'fas fa-hand-paper';
+        }
+
         if (handRaised) {
             setButtonActive(raiseHandButt);
             raiseHandButt.classList.add('hand-active');
+            raiseHandButt.classList.remove('btn-off');
+            showToast('You raised your hand ✋');
         } else {
             setButtonInactive(raiseHandButt);
             raiseHandButt.classList.remove('hand-active');
         }
-
-        if (handRaised) showToast('You raised your hand ✋');
     });
 }
 
@@ -898,18 +897,11 @@ videoButt.addEventListener('click', () => {
 
 // ═══════════════════════════════════════════════
 // SCREEN SHARE  — Professional implementation
-// Features:
-//   • Saves original camera track before switching
-//   • Restores camera exactly without new getUserMedia
-//   • Broadcasts share-start/stop to all peers via socket
-//   • Shows "You are presenting" banner to sharer
-//   • Shows screen-share indicator badge on remote tiles
-//   • Handles browser ESC / track.onended cleanly
-//   • Tries to capture system audio alongside screen
 // ═══════════════════════════════════════════════
-let savedCameraTrack = null;   // hold original cam track while sharing
+let savedCameraTrack = null;   // original camera track saved before sharing
+let screenStopHandled = false; // prevents double-stop from ended + click
 
-// ── Presenting banner (injected once into DOM) ──
+// ── Presenting banner ────────────────────────
 const presentingBanner = (() => {
     const el = document.createElement('div');
     el.id = 'presenting-banner';
@@ -932,86 +924,99 @@ function showPresentingBanner(show) {
     presentingBanner.classList.toggle('banner-visible', show);
 }
 
-// ── Helper: swap video track on all peer connections ──
+// ── Replace video track on all active peer connections ──
 async function replaceVideoTrackOnPeers(newTrack) {
     const promises = Object.values(connections).map(async pc => {
+        // Only replace on connections that are in a usable state
+        if (pc.connectionState === 'closed') return;
         const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender) {
-            await sender.replaceTrack(newTrack);
-        }
+        if (sender) await sender.replaceTrack(newTrack);
     });
     await Promise.all(promises);
-    // also update videoTrackSent map
     Object.keys(connections).forEach(sid => { videoTrackSent[sid] = newTrack; });
 }
 
-// ── Main screen share handler ──
+// ── Main screen share toggle ──
 screenShareButt.addEventListener('click', async () => {
     try {
         if (!screenshareEnabled) {
-            // ── START sharing ──────────────────────────
+            // ── START ──────────────────────────────────
+            // Show guidance toast BEFORE opening picker
+            // so user knows not to select "This Tab" (causes mirror loop)
+            showToast('Select a window or screen — not "This Tab"');
+
             const screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    frameRate:    { ideal: 30 },
-                    width:        { ideal: 1920 },
-                    height:       { ideal: 1080 },
-                    displaySurface: 'monitor'
+                    displaySurface: 'window',   // default to window, not tab
+                    frameRate: { ideal: 30, max: 30 },
+                    width:     { ideal: 1920 },
+                    height:    { ideal: 1080 },
                 },
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    sampleRate: 44100
-                },
-                selfBrowserSurface: 'include',
-                surfaceSwitching:   'include',
-                systemAudio:        'include'
+                audio: true,
+                // Chrome 112+: hide THIS tab from picker completely
+                // This is the definitive fix for the infinite mirror problem.
+                selfBrowserSurface: 'exclude',
             });
 
             const screenVideoTrack = screenStream.getVideoTracks()[0];
-            const screenAudioTrack = screenStream.getAudioTracks()[0] || null;
+            if (!screenVideoTrack) return;   // user cancelled
 
-            // Save current camera track so we can restore it cleanly
-            if (mystream) {
-                const camTracks = mystream.getVideoTracks();
-                savedCameraTrack = camTracks.length ? camTracks[0] : null;
+            // Guard: if user picked "This Tab" despite the warning,
+            // the displaySurface setting will be 'browser'. Warn and stop.
+            const settings = screenVideoTrack.getSettings();
+            if (settings.displaySurface === 'browser') {
+                screenVideoTrack.stop();
+                screenStream.getTracks().forEach(t => t.stop());
+                showToast('⚠️ Please share a Window or Screen, not this Tab — it causes a mirror loop.', 'error');
+                return;
             }
 
-            // Replace video on all peers
+            // Save current camera track for clean restore later
+            savedCameraTrack = mystream
+                ? (mystream.getVideoTracks()[0] || null)
+                : null;
+
+            // Replace video track on all peers
             await replaceVideoTrackOnPeers(screenVideoTrack);
 
-            // If screen audio captured, replace audio track on peers too
+            // Replace audio with screen audio if captured
+            const screenAudioTrack = screenStream.getAudioTracks()[0] || null;
             if (screenAudioTrack) {
-                Object.values(connections).forEach(async pc => {
-                    const audioSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-                    if (audioSender) await audioSender.replaceTrack(screenAudioTrack);
+                const audioPeers = Object.values(connections).map(async pc => {
+                    if (pc.connectionState === 'closed') return;
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                    if (sender) await sender.replaceTrack(screenAudioTrack);
                 });
+                await Promise.all(audioPeers);
             }
 
-            // Update local preview
+            // Update local preview — swap video track without stopping audio
             if (mystream) {
-                // Swap video track in the existing stream (don't stop — keep audio alive)
-                const oldVideoTracks = mystream.getVideoTracks();
-                oldVideoTracks.forEach(t => mystream.removeTrack(t));
-                mystream.addTrack(screenVideoTrack);
+                mystream.getVideoTracks().forEach(t => {
+                    if (t !== screenVideoTrack) mystream.removeTrack(t);
+                });
+                if (!mystream.getVideoTracks().includes(screenVideoTrack)) {
+                    mystream.addTrack(screenVideoTrack);
+                }
             }
             myvideo.srcObject = mystream || screenStream;
 
-            // When user hits ESC or stops via browser UI
+            screenshareEnabled = true;
+            screenStopHandled  = false;
+
+            // Handle browser's native "Stop sharing" button (ESC / Chrome bar)
             screenVideoTrack.addEventListener('ended', () => {
-                if (screenshareEnabled) screenShareButt.click();
+                if (screenshareEnabled && !screenStopHandled) {
+                    screenStopHandled = true;
+                    screenShareButt.click();
+                }
             });
 
-            screenshareEnabled = true;
-
-            // Notify peers via socket that we started sharing
             socket.emit('action', 'screenon');
-
-            // UI feedback
             const icon = screenShareButt.querySelector('i');
             if (icon) icon.className = 'fas fa-stop-circle';
             setButtonActive(screenShareButt);
             showPresentingBanner(true);
-            // Add ring to local video tile + presenting label
             document.getElementById('my-video-box')?.classList.add('is-presenting');
             const myNametag = document.getElementById('myname');
             if (myNametag && !myNametag.querySelector('.presenting-label')) {
@@ -1024,36 +1029,32 @@ screenShareButt.addEventListener('click', async () => {
             showToast('You are now presenting your screen');
 
         } else {
-            // ── STOP sharing ───────────────────────────
+            // ── STOP ───────────────────────────────────
             screenshareEnabled = false;
+            screenStopHandled  = true;   // block the 'ended' handler
 
-            // Get current screen track and stop it
+            // Stop the screen video track
             if (mystream) {
                 mystream.getVideoTracks().forEach(t => t.stop());
             }
 
-            // Restore saved camera track — no new getUserMedia needed
-            let restoreTrack = savedCameraTrack;
+            // Restore camera — use saved track if still alive, else get new one
+            let restoreTrack = (savedCameraTrack && savedCameraTrack.readyState === 'live')
+                ? savedCameraTrack
+                : null;
 
-            if (!restoreTrack || restoreTrack.readyState === 'ended') {
-                // Camera track was stopped or never existed — request fresh one
+            if (!restoreTrack) {
                 try {
-                    const camStream = await navigator.mediaDevices.getUserMedia({
-                        video: true, audio: false
-                    });
-                    restoreTrack = camStream.getVideoTracks()[0];
+                    const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    restoreTrack = camStream.getVideoTracks()[0] || null;
                 } catch (camErr) {
                     console.warn('Camera restore failed:', camErr.message);
-                    restoreTrack = null;
                 }
             }
 
             if (restoreTrack) {
-                // Apply correct enabled state from the camera toggle
                 restoreTrack.enabled = videoAllowed;
-
                 await replaceVideoTrackOnPeers(restoreTrack);
-
                 if (mystream) {
                     mystream.getVideoTracks().forEach(t => mystream.removeTrack(t));
                     mystream.addTrack(restoreTrack);
@@ -1061,35 +1062,29 @@ screenShareButt.addEventListener('click', async () => {
                 myvideo.srcObject = mystream || new MediaStream([restoreTrack]);
             }
 
-            // Restore peer audio if we had swapped it
-            if (mystream) {
-                const micTrack = mystream.getAudioTracks()[0];
-                if (micTrack) {
-                    Object.values(connections).forEach(async pc => {
-                        const audioSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
-                        if (audioSender) await audioSender.replaceTrack(micTrack);
-                    });
-                }
+            // Restore mic audio on all peers
+            const micTrack = mystream ? mystream.getAudioTracks()[0] : null;
+            if (micTrack) {
+                const audioRestore = Object.values(connections).map(async pc => {
+                    if (pc.connectionState === 'closed') return;
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                    if (sender) await sender.replaceTrack(micTrack);
+                });
+                await Promise.all(audioRestore);
             }
 
             savedCameraTrack = null;
-
-            // Notify peers
             socket.emit('action', 'screenoff');
-
-            // UI feedback
             const icon = screenShareButt.querySelector('i');
             if (icon) icon.className = 'fas fa-desktop';
             setButtonInactive(screenShareButt);
             showPresentingBanner(false);
-            // Remove ring and presenting label from local tile
             document.getElementById('my-video-box')?.classList.remove('is-presenting');
             document.getElementById('myname')?.querySelector('.presenting-label')?.remove();
             document.body.classList.remove('is-presenting');
             showToast('You stopped presenting');
         }
     } catch (err) {
-        // User cancelled the picker — silently ignore
         if (err.name === 'NotAllowedError' || err.name === 'AbortError') return;
         showToast('Screen share error: ' + err.message, 'error');
         console.error('Screen share error:', err);
@@ -1236,17 +1231,18 @@ if (recordBtn) {
             let captureStream;
 
             if (choice === 'tab') {
-                // Capture entire browser tab including all peer video tiles
+                // Capture entire browser tab including all peer video tiles.
+                // Do NOT set selfBrowserSurface or preferCurrentTab —
+                // those force the current tab to be captured, causing an
+                // infinite mirror loop when the meeting page itself is selected.
                 captureStream = await navigator.mediaDevices.getDisplayMedia({
                     video: {
-                        displaySurface:   'browser',
-                        frameRate:        { ideal: 30 },
-                        width:            { ideal: 1920 },
-                        height:           { ideal: 1080 },
+                        displaySurface: 'browser',
+                        frameRate:      { ideal: 30 },
+                        width:          { ideal: 1920 },
+                        height:         { ideal: 1080 },
                     },
-                    audio:                true,
-                    selfBrowserSurface:   'include',
-                    preferCurrentTab:     true,         // Chrome 109+
+                    audio: true,
                 });
 
             } else {
@@ -1663,13 +1659,19 @@ whiteboardButt.addEventListener('click', toggleBoard);
                 // Post the code into the sandboxed iframe via a blob URL
                 // and receive output via postMessage.
                 const result = await new Promise((resolve) => {
-                    const timeout = setTimeout(() => resolve({ logs: ['Error: execution timed out (5s)'] }), 5000);
+                    const timeout = setTimeout(() => {
+                        ac.abort();
+                        resolve({ logs: ['Error: execution timed out (5s)'] });
+                    }, 5000);
+                    // Use AbortController so the listener is always cleaned up —
+                    // prevents MaxListenersExceededWarning on rapid Run clicks
+                    const ac = new AbortController();
                     window.addEventListener('message', function handler(evt) {
                         if (evt.source !== sb.contentWindow) return;
                         clearTimeout(timeout);
-                        window.removeEventListener('message', handler);
+                        ac.abort();
                         resolve(evt.data);
-                    });
+                    }, { signal: ac.signal });
                     const runCode = `
                         const _logs = [];
                         const _console = {
@@ -1793,3 +1795,569 @@ cutCall.addEventListener('click', () => {
     Object.values(connections).forEach(pc => pc.close());
     window.location.href = '/';
 });
+
+// ═══════════════════════════════════════════════
+// ACTIVE SPEAKER DETECTION
+// Uses AudioContext AnalyserNode on each peer's
+// MediaStream to detect volume. Highlights the
+// loudest speaker with a blue ring every 200ms.
+// ═══════════════════════════════════════════════
+(function initActiveSpeaker() {
+    const analysers  = {};   // sid → { analyser, dataArray }
+    let   audioCtx   = null;
+    let   lastSpeaker = null;
+
+    function getAudioCtx() {
+        if (!audioCtx || audioCtx.state === 'closed') {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return audioCtx;
+    }
+
+    // Called when a new remote stream is received
+    window.attachSpeakerAnalyser = function(sid, stream) {
+        try {
+            const ctx      = getAudioCtx();
+            const source   = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.5;
+            source.connect(analyser);
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analysers[sid] = { analyser, dataArray };
+        } catch (e) {
+            console.warn('Speaker analyser setup failed:', e.message);
+        }
+    };
+
+    window.detachSpeakerAnalyser = function(sid) {
+        delete analysers[sid];
+    };
+
+    // Poll every 200ms
+    setInterval(() => {
+        let maxVol = 30;   // threshold — only detect if above this
+        let speakerSid = null;
+
+        Object.entries(analysers).forEach(([sid, { analyser, dataArray }]) => {
+            analyser.getByteFrequencyData(dataArray);
+            const vol = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+            if (vol > maxVol) { maxVol = vol; speakerSid = sid; }
+        });
+
+        // Clear old speaker ring
+        if (lastSpeaker !== speakerSid) {
+            if (lastSpeaker) {
+                const el = document.getElementById(lastSpeaker) || document.getElementById('my-video-box');
+                el?.classList.remove('speaking');
+            }
+        }
+        // Add ring to current speaker
+        if (speakerSid) {
+            document.getElementById(speakerSid)?.classList.add('speaking');
+        }
+        lastSpeaker = speakerSid;
+    }, 200);
+})();
+
+// Attach analyser when remote video starts playing
+document.addEventListener('play', e => {
+    if (!e.target.classList.contains('video-frame')) return;
+    const box = e.target.closest('.video-box');
+    if (!box || box.id === 'my-video-box') return;
+    const stream = e.target.srcObject;
+    if (stream) window.attachSpeakerAnalyser(box.id, stream);
+}, true);
+
+// ═══════════════════════════════════════════════
+// HOST STATUS & CONTROLS
+// ═══════════════════════════════════════════════
+let isHost = false;
+
+socket.on('host status', (hostFlag) => {
+    isHost = hostFlag;
+    const hostSettingsSection = document.getElementById('host-settings-section');
+    const hostControls        = document.getElementById('host-controls');
+    if (hostSettingsSection) hostSettingsSection.style.display = hostFlag ? 'block' : 'none';
+    if (hostControls) hostControls.classList.toggle('hidden', !hostFlag);
+    if (hostFlag) {
+        showToast('You are the host ⭐', 'host');
+        // Add Host badge to local tile
+        const myBox = document.getElementById('my-video-box');
+        if (myBox && !myBox.querySelector('.host-badge')) {
+            const badge = document.createElement('div');
+            badge.className = 'host-badge';
+            badge.textContent = 'Host';
+            myBox.appendChild(badge);
+        }
+    }
+});
+
+// Handle being kicked by host
+socket.on('kicked', msg => {
+    showToast(msg, 'error');
+    setTimeout(() => {
+        if (mystream) mystream.getTracks().forEach(t => t.stop());
+        Object.values(connections).forEach(pc => pc.close());
+        window.location.href = '/';
+    }, 2000);
+});
+
+// Handle meeting ended by host
+socket.on('meeting-ended', msg => {
+    showToast(msg, 'error');
+    setTimeout(() => {
+        if (mystream) mystream.getTracks().forEach(t => t.stop());
+        Object.values(connections).forEach(pc => pc.close());
+        window.location.href = '/';
+    }, 2500);
+});
+
+// Handle being force-muted by host
+socket.on('forced-mute', () => {
+    if (audioAllowed) audioButt.click();  // simulate mic click to mute
+    showToast('You were muted by the host');
+});
+
+// Mute-all button
+const muteAllBtn = document.getElementById('btn-mute-all');
+muteAllBtn?.addEventListener('click', () => {
+    if (!isHost) return;
+    socket.emit('host action', { action: 'mute-all' });
+});
+
+// End meeting button (in settings)
+const endMeetingBtn = document.getElementById('end-meeting-btn');
+endMeetingBtn?.addEventListener('click', () => {
+    if (!isHost) return;
+    if (confirm('End the meeting for everyone?')) {
+        socket.emit('host action', { action: 'end-meeting' });
+    }
+});
+
+// ── renderAttendees extended to show host badge + host action buttons ──
+// Override the existing renderAttendees to add host features
+function renderAttendees(participants = []) {
+    if (!attendeeList) return;
+    attendeeList.innerHTML = '';
+    if (!participants.length) {
+        attendeeList.innerHTML = '<div class="attendee-empty">No participants yet</div>';
+        return;
+    }
+    const frag = document.createDocumentFragment();
+    participants.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'attendee-item';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'attendee-avatar';
+        const initials = (p.username || 'P').slice(0, 2).toUpperCase();
+        avatar.textContent = initials;
+        const colors = ['#4285f4','#ea4335','#34a853','#fbbc04','#9b59b6','#fa7b17','#e91e63','#00bcd4'];
+        avatar.style.background = colors[(p.username || '').charCodeAt(0) % colors.length];
+
+        const nameWrap = document.createElement('div');
+        nameWrap.className = 'attendee-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'attendee-name';
+        const isSelf = p.socketId === socket.id;
+        nameEl.textContent = (p.username || 'Participant') + (isSelf ? ' (You)' : '');
+
+        // Host badge
+        if (p.isHost) {
+            const hbadge = document.createElement('span');
+            hbadge.className = 'host-badge';
+            hbadge.style.cssText = 'position:static;display:inline-block;margin-left:6px;font-size:0.6rem;padding:1px 6px;border-radius:3px;';
+            hbadge.textContent = 'Host';
+            nameEl.appendChild(hbadge);
+        }
+
+        nameWrap.appendChild(nameEl);
+
+        const stateEl = document.createElement('div');
+        stateEl.className = 'attendee-state';
+
+        const mic = document.createElement('span');
+        mic.className = `status-pill ${p.mic === 'on' ? 'status-on' : 'status-off'}`;
+        mic.innerHTML = p.mic === 'on' ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+
+        const cam = document.createElement('span');
+        cam.className = `status-pill ${p.video === 'on' ? 'status-on' : 'status-off'}`;
+        cam.innerHTML = p.video === 'on' ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+
+        if (handInfo[p.socketId]) {
+            const hand = document.createElement('span');
+            hand.className = 'status-pill status-hand';
+            hand.textContent = '✋';
+            stateEl.appendChild(hand);
+        }
+        stateEl.appendChild(mic);
+        stateEl.appendChild(cam);
+
+        // Host action buttons (only shown to host, not for self)
+        if (isHost && !isSelf) {
+            const actions = document.createElement('div');
+            actions.className = 'attendee-actions';
+
+            const muteBtn = document.createElement('button');
+            muteBtn.className = 'attendee-action-btn';
+            muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            muteBtn.title = 'Mute';
+            muteBtn.addEventListener('click', () => {
+                socket.emit('host action', { action: 'mute-participant', targetId: p.socketId });
+            });
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'attendee-action-btn danger';
+            removeBtn.innerHTML = '<i class="fas fa-user-slash"></i>';
+            removeBtn.title = 'Remove from call';
+            removeBtn.addEventListener('click', () => {
+                if (confirm(`Remove ${p.username} from the meeting?`)) {
+                    socket.emit('host action', { action: 'remove-participant', targetId: p.socketId });
+                }
+            });
+
+            actions.appendChild(muteBtn);
+            actions.appendChild(removeBtn);
+            stateEl.appendChild(actions);
+        }
+
+        item.appendChild(avatar);
+        item.appendChild(nameWrap);
+        item.appendChild(stateEl);
+        frag.appendChild(item);
+    });
+    attendeeList.appendChild(frag);
+};
+// (renderAttendees is defined above — no further patching needed)
+
+// ═══════════════════════════════════════════════
+// SETTINGS MODAL — Device selector + host settings
+// ═══════════════════════════════════════════════
+(function initSettings() {
+    const settingsBtn   = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsClose = document.getElementById('settings-close');
+    const selMic        = document.getElementById('sel-mic');
+    const selSpeaker    = document.getElementById('sel-speaker');
+    const selCam        = document.getElementById('sel-cam');
+    const selQuality    = document.getElementById('sel-quality');
+
+    if (!settingsBtn || !settingsModal) return;
+
+    async function loadDevices() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            [selMic, selSpeaker, selCam].forEach(el => { if (el) el.innerHTML = ''; });
+
+            devices.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value       = d.deviceId;
+                opt.textContent = d.label || `${d.kind} ${d.deviceId.slice(0,4)}`;
+                if (d.kind === 'audioinput'  && selMic)     selMic.appendChild(opt);
+                if (d.kind === 'audiooutput' && selSpeaker) selSpeaker.appendChild(opt.cloneNode(true));
+                if (d.kind === 'videoinput'  && selCam)     selCam.appendChild(opt.cloneNode(true));
+            });
+        } catch (e) { console.warn('Device enumeration failed:', e.message); }
+    }
+
+    settingsBtn.addEventListener('click', async () => {
+        await loadDevices();
+        settingsModal.classList.remove('hidden');
+    });
+    settingsClose?.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    settingsModal.addEventListener('click', e => {
+        if (e.target === settingsModal) settingsModal.classList.add('hidden');
+    });
+
+    // Apply camera/mic change
+    selCam?.addEventListener('change', async () => {
+        try {
+            const constraints = {
+                video: { deviceId: { exact: selCam.value } },
+                audio: selMic?.value ? { deviceId: { exact: selMic.value } } : true,
+            };
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            const newAudioTrack = newStream.getAudioTracks()[0];
+            if (mystream) {
+                mystream.getVideoTracks().forEach(t => { t.stop(); mystream.removeTrack(t); });
+                mystream.getAudioTracks().forEach(t => { t.stop(); mystream.removeTrack(t); });
+                if (newVideoTrack) mystream.addTrack(newVideoTrack);
+                if (newAudioTrack) mystream.addTrack(newAudioTrack);
+            }
+            myvideo.srcObject = mystream;
+            await replaceVideoTrackOnPeers(newVideoTrack);
+            showToast('Camera changed');
+        } catch (e) { showToast('Could not switch camera: ' + e.message, 'error'); }
+    });
+
+    selMic?.addEventListener('change', () => {
+        showToast('Microphone change will apply on next call');
+    });
+
+    // Speaker output (Chrome only)
+    selSpeaker?.addEventListener('change', () => {
+        document.querySelectorAll('video').forEach(v => {
+            if (v.setSinkId) v.setSinkId(selSpeaker.value).catch(() => {});
+        });
+    });
+
+    // Quality selector
+    selQuality?.addEventListener('change', () => {
+        const q = selQuality.value;
+        const constraints = q === 'hd'
+            ? { width: 1280, height: 720 }
+            : q === 'sd'
+            ? { width: 640,  height: 360 }
+            : { width: { ideal: 1280 }, height: { ideal: 720 } };
+
+        if (mystream) {
+            mystream.getVideoTracks().forEach(t => {
+                t.applyConstraints({ video: constraints }).catch(() => {});
+            });
+        }
+        showToast(`Video quality: ${q.toUpperCase()}`);
+    });
+})();
+
+// ═══════════════════════════════════════════════
+// INVITE LINK BUTTON
+// ═══════════════════════════════════════════════
+document.getElementById('invite-link-btn')?.addEventListener('click', () => {
+    const url = `${location.origin}/room.html?room=${encodeURIComponent(roomid)}`;
+    navigator.clipboard.writeText(url)
+        .then(() => showToast('Invite link copied!'))
+        .catch(() => showToast('Could not copy link', 'error'));
+});
+
+// ═══════════════════════════════════════════════
+// WHITEBOARD — Brush size, Undo/Redo, Text tool
+// ═══════════════════════════════════════════════
+(function initWhiteboardExtras() {
+    const wbSizeSlider = document.getElementById('wb-size');
+    const wbUndoStack  = [];   // stores ImageData snapshots
+    const wbRedoStack  = [];
+    const MAX_HISTORY  = 30;
+    let   wbTool       = 'pen'; // 'pen' | 'eraser' | 'text'
+    let   wbTextActive = false;
+
+    // Sync size slider
+    wbSizeSlider?.addEventListener('input', () => {
+        drawSize = Number(wbSizeSlider.value);
+        if (wbTool === 'eraser') drawSize = drawSize * 3;
+    });
+
+    // Tool buttons
+    window.setWbTool = function(tool) {
+        wbTool = tool;
+        document.querySelectorAll('#wb-pen, #wb-text, #wb-eraser').forEach(b => b.classList.remove('wb-active'));
+        const activeBtn = { pen: '#wb-pen', text: '#wb-text', eraser: '#wb-eraser' }[tool];
+        document.querySelector(activeBtn)?.classList.add('wb-active');
+
+        if (tool === 'eraser') {
+            drawColor = 'white';
+            drawSize  = Math.max(10, Number(wbSizeSlider?.value || 14) * 3);
+        } else if (tool === 'pen') {
+            // Get selected swatch color — fallback to current drawColor
+            const selectedSwatch = document.querySelector('.wb-swatch.selected');
+            if (selectedSwatch?.dataset.color) drawColor = selectedSwatch.dataset.color;
+            drawSize = Number(wbSizeSlider?.value || 3);
+        } else if (tool === 'text') {
+            canvas.style.cursor = 'text';
+        }
+
+        if (tool !== 'text') canvas.style.cursor = 'crosshair';
+    };
+
+    // Text tool click handler
+    canvas.addEventListener('click', e => {
+        if (wbTool !== 'text') return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const input = document.createElement('input');
+        input.type  = 'text';
+        input.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY - 20}px;
+            background:transparent;border:none;border-bottom:2px solid ${drawColor};
+            color:${drawColor};font-size:16px;outline:none;z-index:9999;min-width:80px;`;
+        document.body.appendChild(input);
+        input.focus();
+        wbTextActive = true;
+
+        input.addEventListener('blur', () => {
+            if (input.value.trim()) {
+                ctx.fillStyle = drawColor;
+                ctx.font = `${drawSize * 5 + 10}px 'Google Sans', sans-serif`;
+                ctx.fillText(input.value, x, y);
+                socket.emit('draw-text', { x, y, text: input.value, color: drawColor, size: drawSize });
+                scheduleSaveCanvas();
+            }
+            input.remove();
+            wbTextActive = false;
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') input.blur();
+            if (e.key === 'Escape') { input.value = ''; input.blur(); }
+        });
+    });
+
+    // Save snapshot before each stroke for undo
+    const origStartDraw = window.startDraw;
+    window.startDraw = function(x, y) {
+        // Save canvas state before drawing
+        wbUndoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        if (wbUndoStack.length > MAX_HISTORY) wbUndoStack.shift();
+        wbRedoStack.length = 0;  // clear redo on new stroke
+        origStartDraw.call(this, x, y);
+    };
+
+    // Undo
+    window.wbUndo = function() {
+        if (!wbUndoStack.length) return;
+        wbRedoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        ctx.putImageData(wbUndoStack.pop(), 0, 0);
+        scheduleSaveCanvas();
+    };
+
+    // Redo
+    window.wbRedo = function() {
+        if (!wbRedoStack.length) return;
+        wbUndoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        ctx.putImageData(wbRedoStack.pop(), 0, 0);
+        scheduleSaveCanvas();
+    };
+
+    // Color swatch click — mark selected and switch to pen
+    document.querySelectorAll('.wb-swatch').forEach(sw => {
+        // Store color in dataset for later retrieval
+        const style = sw.style.background || sw.className;
+        sw.addEventListener('click', () => {
+            document.querySelectorAll('.wb-swatch').forEach(s => s.classList.remove('selected'));
+            sw.classList.add('selected');
+            // Get color from the onclick attribute or style
+            const onclickAttr = sw.getAttribute('onclick') || '';
+            const colorMatch  = onclickAttr.match(/setColor\('([^']+)'\)/);
+            if (colorMatch) {
+                drawColor = colorMatch[1];
+                sw.dataset.color = colorMatch[1];
+            }
+            wbTool = 'pen';
+            drawSize = Number(wbSizeSlider?.value || 3);
+            canvas.style.cursor = 'crosshair';
+            document.querySelector('#wb-pen')?.classList.add('wb-active');
+            document.querySelector('#wb-eraser')?.classList.remove('wb-active');
+            document.querySelector('#wb-text')?.classList.remove('wb-active');
+        });
+    });
+
+    // Select black swatch by default
+    const blackSwatch = document.querySelector('.wb-swatch.black');
+    if (blackSwatch) {
+        blackSwatch.classList.add('selected');
+        blackSwatch.dataset.color = 'black';
+    }
+
+    // Keyboard shortcuts for undo/redo
+    document.addEventListener('keydown', e => {
+        if (!boardVisible) return;
+        if (e.ctrlKey && e.key === 'z') { e.preventDefault(); window.wbUndo(); }
+        if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+            e.preventDefault(); window.wbRedo();
+        }
+    });
+
+    // Receive text from remote
+    socket.on('draw-text', data => {
+        if (!data) return;
+        ctx.fillStyle = data.color || 'black';
+        ctx.font = `${(data.size || 3) * 5 + 10}px 'Google Sans', sans-serif`;
+        ctx.fillText(data.text, data.x, data.y);
+    });
+})();
+
+// ═══════════════════════════════════════════════
+// EMOJI REACTIONS IN CHAT
+// ═══════════════════════════════════════════════
+(function initEmojiPicker() {
+    const pickerBtn  = document.getElementById('emoji-picker-btn');
+    const emojiPopup = document.getElementById('emoji-popup');
+    const chatInput  = document.querySelector('.chat-input');
+    if (!pickerBtn || !emojiPopup || !chatInput) return;
+
+    const emojis = ['😀','😂','👍','❤️','🎉','🔥','👏','🤔','😮','😢','🙏','💡',
+                    '✅','🚀','💯','🎯','🤝','👋','😎','🙌'];
+
+    // Build emoji spans
+    emojiPopup.innerHTML = '';
+    emojis.forEach(em => {
+        const span = document.createElement('span');
+        span.textContent = em;
+        span.style.cssText = 'cursor:pointer;padding:2px;display:inline-block;';
+        span.addEventListener('click', () => {
+            chatInput.value += em;
+            chatInput.focus();
+            emojiPopup.classList.add('hidden');
+        });
+        emojiPopup.appendChild(span);
+    });
+
+    pickerBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        emojiPopup.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', e => {
+        if (!emojiPopup.contains(e.target) && e.target !== pickerBtn) {
+            emojiPopup.classList.add('hidden');
+        }
+    });
+})();
+
+// ═══════════════════════════════════════════════
+// NETWORK QUALITY INDICATOR
+// Measures RTCPeerConnection round-trip time every
+// 4 seconds and updates the signal icon color.
+// ═══════════════════════════════════════════════
+(function initNetworkQuality() {
+    const netEl   = document.getElementById('net-quality');
+    const netIcon = document.getElementById('net-icon');
+    if (!netEl) return;
+
+    async function checkQuality() {
+        const pcs = Object.values(connections);
+        if (!pcs.length) { netEl.className = 'net-quality'; return; }
+
+        let totalRtt = 0, count = 0;
+        for (const pc of pcs) {
+            try {
+                const stats = await pc.getStats();
+                stats.forEach(report => {
+                    if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime != null) {
+                        totalRtt += report.currentRoundTripTime * 1000; // ms
+                        count++;
+                    }
+                });
+            } catch (_) {}
+        }
+
+        if (!count) return;
+        const avgRtt = totalRtt / count;
+        netEl.className = 'net-quality';
+
+        if (avgRtt < 100) {
+            netEl.classList.add('good');
+            netEl.title = `Network: Good (${avgRtt.toFixed(0)}ms)`;
+        } else if (avgRtt < 300) {
+            netEl.classList.add('fair');
+            netEl.title = `Network: Fair (${avgRtt.toFixed(0)}ms)`;
+        } else {
+            netEl.classList.add('poor');
+            netEl.title = `Network: Poor (${avgRtt.toFixed(0)}ms)`;
+        }
+    }
+
+    setInterval(checkQuality, 4000);
+})();

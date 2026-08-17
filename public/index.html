@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>QuickMeet - Video Call & Chat</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>">
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="css/style.css">
@@ -18,7 +19,7 @@
 <body>
     <div class="landing-shell">
         <navbar>
-            <div class="logo">ComeCollab</div>
+            <div class="logo"><i class="fas fa-video" style="color:#8ab4f8;margin-right:8px;"></i>QuickMeet</div>
             <div class="nav-pill">Realtime collaboration</div>
         </navbar>
 
@@ -32,6 +33,7 @@
                     <i class="fas fa-plus-circle"></i> &nbsp;Create New Room
                 </button>
                 <input type="text" name="room" spellcheck="false" placeholder="Enter Room Code" id="roomcode" class="roomcode">
+                <input type="password" spellcheck="false" placeholder="Room password (optional)" id="roompassword" class="roomcode" style="margin-top:10px">
                 <div class="joinroom unselectable" id="joinroom">Join Room</div>
                 <div class="feature-list">
                     <div class="feature-card"><i class="fas fa-video"></i><span>Video calls</span></div>

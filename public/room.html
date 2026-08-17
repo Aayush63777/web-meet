@@ -5,7 +5,9 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>QuickMeet — Room</title>
-    <link rel="stylesheet" href="css/style.css">
+    <!-- Inline SVG favicon — prevents 404 on /favicon.ico -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>">
+    <link rel="stylesheet" href="css/style.css?v=20260817">
     <!-- FIX #9: SRI hash locks this CDN resource to the exact file we audited -->
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -33,6 +35,13 @@
                 placeholder="Enter your name…"
                 autocomplete="off"
                 maxlength="40">
+        <input  type="password"
+                class="name-field"
+                id="room-password"
+                placeholder="Room password (if required)"
+                autocomplete="off"
+                maxlength="100"
+                style="margin-top:10px">
         <button class="continue-name">
             <i class="fas fa-arrow-right"></i>&nbsp;Join now
         </button>
@@ -94,7 +103,11 @@
             <!-- Right — clock + mobile toggle -->
             <div class="topbar-right">
                 <span class="meeting-clock" id="meeting-clock">00:00</span>
-                <!-- People/Chat toggle — always visible, opens sidebar on all screen sizes -->
+                <!-- Settings -->
+                <button class="topbar-icon-btn" id="settings-btn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <!-- People/Chat toggle -->
                 <button class="topbar-icon-btn" id="chat-toggle-btn" title="Chat & People">
                     <i class="fas fa-comment-alt"></i>
                 </button>
@@ -147,16 +160,21 @@
                         <div class="wb-swatch pink"   onclick="setColor('#e52592')" title="Pink"></div>
                     </div>
                     <div class="wb-sep"></div>
+                    <!-- Brush size slider -->
+                    <div class="wb-size-wrap" title="Brush size">
+                        <i class="fas fa-circle" style="font-size:6px;color:#9aa0a6"></i>
+                        <input type="range" id="wb-size" min="1" max="30" value="3" class="wb-size-slider">
+                        <i class="fas fa-circle" style="font-size:14px;color:#9aa0a6"></i>
+                    </div>
+                    <div class="wb-sep"></div>
                     <div class="wb-tools">
-                        <button class="wb-btn" onclick="setEraser()">
-                            <i class="fas fa-eraser"></i> Eraser
-                        </button>
-                        <button class="wb-btn wb-danger" onclick="clearBoard()">
-                            <i class="fas fa-trash"></i> Clear
-                        </button>
-                        <button class="wb-btn" onclick="toggleBoard()">
-                            <i class="fas fa-times"></i> Close
-                        </button>
+                        <button class="wb-btn wb-active" id="wb-pen"    onclick="setWbTool('pen')"   title="Pen"><i class="fas fa-pen"></i></button>
+                        <button class="wb-btn"           id="wb-text"   onclick="setWbTool('text')"  title="Text"><i class="fas fa-font"></i></button>
+                        <button class="wb-btn"           id="wb-eraser" onclick="setWbTool('eraser')" title="Eraser"><i class="fas fa-eraser"></i></button>
+                        <button class="wb-btn"           id="wb-undo"   onclick="wbUndo()"           title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+                        <button class="wb-btn"           id="wb-redo"   onclick="wbRedo()"           title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i></button>
+                        <button class="wb-btn wb-danger" onclick="clearBoard()"                      title="Clear"><i class="fas fa-trash"></i> Clear</button>
+                        <button class="wb-btn"           onclick="toggleBoard()"                     title="Close"><i class="fas fa-times"></i> Close</button>
                     </div>
                 </div>
             </div><!-- /whiteboard-cont -->
@@ -307,12 +325,26 @@
 
         <!-- Attendee list (hidden until People tab selected) -->
         <div class="attendee-list-panel hidden">
-            <div class="attendee-title">In this call</div>
+            <div class="attendee-header">
+                <div class="attendee-title">In this call</div>
+                <button class="invite-link-btn" id="invite-link-btn" title="Copy invite link">
+                    <i class="fas fa-link"></i> Invite
+                </button>
+            </div>
+            <!-- Host controls bar (shown only to host) -->
+            <div class="host-controls hidden" id="host-controls">
+                <button class="host-ctrl-btn" id="btn-mute-all" title="Mute everyone">
+                    <i class="fas fa-microphone-slash"></i> Mute all
+                </button>
+            </div>
             <div class="attendee-list" id="attendee-list"></div>
         </div>
 
         <!-- Message input -->
         <div class="chat-input-cont">
+            <button class="emoji-picker-btn" id="emoji-picker-btn" title="Emoji">
+                <i class="fas fa-smile"></i>
+            </button>
             <input  type="text"
                     class="chat-input"
                     placeholder="Send a message to everyone…"
@@ -320,6 +352,10 @@
             <button class="chat-send" title="Send">
                 <i class="fas fa-paper-plane"></i>
             </button>
+        </div>
+        <!-- Emoji popup -->
+        <div class="emoji-popup hidden" id="emoji-popup">
+            😀 😂 👍 ❤️ 🎉 🔥 👏 🤔 😮 😢 🙏 💡
         </div>
 
     </div><!-- /right-cont -->
@@ -434,8 +470,71 @@
 <!-- ══════════════════════════════════════════════
      SCRIPTS
 ══════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════
+     SETTINGS MODAL
+══════════════════════════════════════════════ -->
+<div class="qm-modal hidden" id="settings-modal">
+    <div class="qm-modal-box">
+        <div class="qm-modal-header">
+            <h3><i class="fas fa-cog"></i> Settings</h3>
+            <button class="qm-modal-close" id="settings-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="qm-modal-body">
+            <div class="settings-section">
+                <h4>Audio</h4>
+                <div class="setting-row">
+                    <label>Microphone</label>
+                    <select id="sel-mic" class="device-select"></select>
+                </div>
+                <div class="setting-row">
+                    <label>Speaker</label>
+                    <select id="sel-speaker" class="device-select"></select>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>Video</h4>
+                <div class="setting-row">
+                    <label>Camera</label>
+                    <select id="sel-cam" class="device-select"></select>
+                </div>
+                <div class="setting-row">
+                    <label>Quality</label>
+                    <select id="sel-quality" class="device-select">
+                        <option value="auto">Auto</option>
+                        <option value="hd">HD (720p)</option>
+                        <option value="sd">SD (360p)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="settings-section" id="host-settings-section" style="display:none">
+                <h4>Host Controls</h4>
+                <div class="setting-row">
+                    <label>Room capacity</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input type="number" id="capacity-input" min="2" max="500" value="200" class="capacity-input-field">
+                        <button id="capacity-apply" class="small-btn">Set</button>
+                        <span class="capacity-info" id="capacity-info">Max 200</span>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <button class="danger-btn" id="end-meeting-btn">
+                        <i class="fas fa-phone-slash"></i> End meeting for everyone
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     NETWORK QUALITY INDICATOR
+══════════════════════════════════════════════ -->
+<div class="net-quality" id="net-quality" title="Network quality">
+    <i class="fas fa-signal" id="net-icon"></i>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
-<script src="js/room.js"></script>
+<script src="js/room.js?v=20260818"></script>
 <script>
 /* ── Meeting clock (dual: topbar + toolbar) ── */
 (function () {
