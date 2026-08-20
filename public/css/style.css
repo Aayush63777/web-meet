@@ -1097,7 +1097,87 @@ navbar .nav-pill {
 }
 #stop-present-btn:hover { background: #c5332d; }
 
-/* Push the top bar down when banner is visible */
+/* ══════════════════════════════════════════════════
+   SCREEN SHARE LAYOUT — Google Meet style
+   When presenting: shared screen fills left (main),
+   participant cameras stack as a narrow strip on right.
+══════════════════════════════════════════════════ */
+
+/* video-area already display:flex row — just need to
+   constrain vcont width when presenting */
+
+body.is-presenting .video-area {
+    flex-direction: row;
+}
+
+/* The local video tile shows the screen share stream —
+   make it the dominant tile (left, big) */
+body.is-presenting #vcont.video-cont-single,
+body.is-presenting #vcont {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    padding: 4px;
+    overflow: hidden;
+}
+
+/* My video box (screen share) — takes remaining space on the left */
+body.is-presenting #my-video-box {
+    flex: 1 1 auto;
+    min-width: 0;
+    aspect-ratio: unset;
+    height: 100%;
+}
+
+/* Remote participant tiles — fixed narrow strip on the right */
+body.is-presenting .video-box:not(#my-video-box) {
+    flex: 0 0 200px;
+    width: 200px;
+    height: 100%;
+    min-width: 0;
+}
+
+/* When only 1 participant (no remote tiles), screen fills full width */
+body.is-presenting #vcont:only-child #my-video-box {
+    flex: 1 1 100%;
+}
+
+/* Stacked multi-participant strip on right side */
+body.is-presenting #vcont.video-cont {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Each video box in the strip */
+body.is-presenting #vcont.video-cont .video-box:not(#my-video-box) {
+    flex: 0 0 180px;
+    width: 180px;
+    aspect-ratio: 16/9;
+    height: auto;
+    align-self: center;
+}
+
+/* Screen share box takes all remaining space */
+body.is-presenting #vcont.video-cont #my-video-box {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    aspect-ratio: unset;
+}
+
+/* Mobile: full width during screen share, no side strip */
+@media (max-width: 768px) {
+    body.is-presenting #vcont.video-cont { flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+    body.is-presenting #vcont.video-cont .video-box:not(#my-video-box) { flex: 0 0 auto; width: 100%; aspect-ratio: 16/9; height: auto; }
+    body.is-presenting #vcont.video-cont #my-video-box { flex: 0 0 auto; height: 55vh; }
+}
+
+/* Push topbar down when presenting banner visible */
 body.is-presenting .meeting-topbar {
     margin-top: 48px;
 }
@@ -1151,6 +1231,59 @@ body.is-presenting .meeting-topbar {
 /* ═══════════════════════════════════════════════════
    RECORDING — Professional UI
 ═══════════════════════════════════════════════════ */
+
+/* ── Share source picker modal ── */
+#share-picker-modal {
+    position: fixed; inset: 0; z-index: 700;
+    background: rgba(0,0,0,0.72); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+}
+#share-picker-modal.share-picker-visible { display: flex; }
+
+.share-picker-box {
+    background: var(--gm-surface);
+    border: 1px solid var(--gm-border);
+    border-radius: 16px; width: 400px; max-width: 94vw;
+    padding: 28px; box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    text-align: center;
+}
+.share-picker-header {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; margin-bottom: 8px;
+}
+.share-picker-header i { color: var(--gm-blue); font-size: 1.2rem; }
+.share-picker-header h3 { font-size: 1.05rem; font-weight: 600; color: var(--gm-text); }
+.share-picker-sub { font-size: 0.82rem; color: var(--gm-subtext); margin-bottom: 20px; line-height: 1.5; }
+.share-picker-options {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;
+}
+.share-opt-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 20px 12px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 12px; color: var(--gm-text);
+    cursor: pointer; transition: all 0.15s;
+}
+.share-opt-btn:hover {
+    background: rgba(138,180,248,0.12);
+    border-color: rgba(138,180,248,0.5);
+    color: var(--gm-blue);
+}
+.share-opt-btn i    { font-size: 1.6rem; }
+.share-opt-btn span { font-size: 0.88rem; font-weight: 600; }
+.share-opt-btn small{ font-size: 0.7rem; color: var(--gm-subtext); }
+.share-picker-cancel {
+    padding: 8px 20px; border-radius: 8px;
+    background: rgba(255,255,255,0.07); border: 1px solid var(--gm-border);
+    color: var(--gm-subtext); font-size: 0.82rem; cursor: pointer;
+    transition: background 0.15s;
+}
+.share-picker-cancel:hover { background: rgba(255,255,255,0.13); color: var(--gm-text); }
+@media (max-width: 480px) {
+    .share-picker-options { grid-template-columns: 1fr; }
+    .share-picker-box { padding: 20px 16px; }
+}
 
 /* ── Source picker modal ── */
 #rec-modal {

@@ -10,16 +10,27 @@ const socket = io({
 // Raise EventEmitter listener limits on all Socket.IO internal objects.
 // Called immediately AND on connect because engine is only available after connect.
 function raiseSocketListenerLimits() {
-    [socket, socket.io, socket.io?.engine, socket.io?.engine?.transport]
-        .forEach(t => {
-            if (t && typeof t.setMaxListeners === 'function') t.setMaxListeners(50);
-            if (t && t.emitter && typeof t.emitter.setMaxListeners === 'function') t.emitter.setMaxListeners(50);
-        });
+    // Set high limit on all socket.io internal emitters
+    const targets = [socket, socket.io, socket.io?.engine];
+    targets.forEach(t => {
+        if (!t) return;
+        if (typeof t.setMaxListeners === 'function') t.setMaxListeners(50);
+        // Some socket.io versions wrap EventEmitter in .emitter
+        if (t.emitter && typeof t.emitter.setMaxListeners === 'function') t.emitter.setMaxListeners(50);
+    });
+    // Also patch the current transport if it exists
+    const transport = socket.io?.engine?.transport;
+    if (transport) {
+        if (typeof transport.setMaxListeners === 'function') transport.setMaxListeners(50);
+        if (transport.socket && typeof transport.socket.setMaxListeners === 'function') transport.socket.setMaxListeners(50);
+    }
 }
 raiseSocketListenerLimits();
+
 socket.on('connect', () => {
-    // Re-run after connect — engine.transport is now available
     raiseSocketListenerLimits();
+    // Also re-patch after WebSocket upgrade (polling → websocket)
+    socket.io?.engine?.on('upgrade', () => raiseSocketListenerLimits());
     console.log('Socket connected:', socket.id);
 });
 
@@ -936,38 +947,85 @@ async function replaceVideoTrackOnPeers(newTrack) {
     Object.keys(connections).forEach(sid => { videoTrackSent[sid] = newTrack; });
 }
 
+// ── Share source picker — prevents user from accidentally picking This Tab ──
+let sharePickerModal = null;
+
+function showShareSourcePicker() {
+    return new Promise((resolve) => {
+        if (!sharePickerModal) {
+            sharePickerModal = document.createElement('div');
+            sharePickerModal.id = 'share-picker-modal';
+            sharePickerModal.innerHTML = `
+                <div class="share-picker-box">
+                    <div class="share-picker-header">
+                        <i class="fas fa-desktop"></i>
+                        <h3>What do you want to share?</h3>
+                    </div>
+                    <p class="share-picker-sub">Sharing this tab causes a mirror loop — choose a window or screen instead.</p>
+                    <div class="share-picker-options">
+                        <button class="share-opt-btn" id="share-opt-window">
+                            <i class="fas fa-window-restore"></i>
+                            <span>A Window</span>
+                            <small>Share one app window</small>
+                        </button>
+                        <button class="share-opt-btn" id="share-opt-screen">
+                            <i class="fas fa-expand"></i>
+                            <span>Entire Screen</span>
+                            <small>Share your full desktop</small>
+                        </button>
+                    </div>
+                    <button class="share-picker-cancel" id="share-picker-cancel">Cancel</button>
+                </div>`;
+            document.body.appendChild(sharePickerModal);
+        }
+
+        sharePickerModal.classList.add('share-picker-visible');
+
+        const cleanup = (result) => {
+            sharePickerModal.classList.remove('share-picker-visible');
+            resolve(result);
+        };
+
+        document.getElementById('share-opt-window').onclick  = () => cleanup('window');
+        document.getElementById('share-opt-screen').onclick  = () => cleanup('monitor');
+        document.getElementById('share-picker-cancel').onclick = () => cleanup(null);
+        sharePickerModal.onclick = (e) => { if (e.target === sharePickerModal) cleanup(null); };
+    });
+}
+
 // ── Main screen share toggle ──
 screenShareButt.addEventListener('click', async () => {
     try {
         if (!screenshareEnabled) {
             // ── START ──────────────────────────────────
-            // Show guidance toast BEFORE opening picker
-            // so user knows not to select "This Tab" (causes mirror loop)
-            showToast('Select a window or screen — not "This Tab"');
+            // Show a pre-picker that lets user choose Window or Entire Screen.
+            // We do NOT offer "Tab" — it causes infinite mirror loop.
+            // We call getDisplayMedia with the specific displaySurface constraint
+            // so the browser picker only shows that category.
+            const shareChoice = await showShareSourcePicker();
+            if (!shareChoice) return; // user cancelled
 
             const screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    displaySurface: 'window',   // default to window, not tab
+                    displaySurface: shareChoice,   // 'window' or 'monitor'
                     frameRate: { ideal: 30, max: 30 },
                     width:     { ideal: 1920 },
                     height:    { ideal: 1080 },
                 },
                 audio: true,
-                // Chrome 112+: hide THIS tab from picker completely
-                // This is the definitive fix for the infinite mirror problem.
+                // Hide current tab from picker — belt AND suspenders
                 selfBrowserSurface: 'exclude',
             });
 
             const screenVideoTrack = screenStream.getVideoTracks()[0];
-            if (!screenVideoTrack) return;   // user cancelled
+            if (!screenVideoTrack) return;
 
-            // Guard: if user picked "This Tab" despite the warning,
-            // the displaySurface setting will be 'browser'. Warn and stop.
+            // Final guard — if somehow a browser tab was captured, abort
             const settings = screenVideoTrack.getSettings();
             if (settings.displaySurface === 'browser') {
                 screenVideoTrack.stop();
                 screenStream.getTracks().forEach(t => t.stop());
-                showToast('⚠️ Please share a Window or Screen, not this Tab — it causes a mirror loop.', 'error');
+                showToast('⚠️ Tab sharing causes a mirror loop. Please choose a Window or Screen.', 'error');
                 return;
             }
 

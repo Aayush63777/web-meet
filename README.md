@@ -1,334 +1,256 @@
-# QuickMeet - Professional Video Conferencing Platform
+# 🎥 QuickMeet
 
-A production-grade video conferencing application built with WebRTC, Express, and Socket.io. Features real-time video calls, collaborative whiteboard, screen sharing, and instant messaging.
+QuickMeet is a real-time video conferencing platform built with **Node.js**, **Socket.IO**, and **WebRTC**. Host video calls, chat live, collaborate on a shared whiteboard, write and run code together — all directly in the browser, without signups.
 
-[![Node.js](https://img.shields.io/badge/Node.js-v14+-green.svg)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.17-blue.svg)](https://expressjs.com/)
-[![Socket.io](https://img.shields.io/badge/Socket.io-4.7-blue.svg)](https://socket.io/)
-[![WebRTC](https://img.shields.io/badge/WebRTC-Enabled-green.svg)](https://webrtc.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+> Inspired by Google Meet. Built from scratch.
 
 ---
 
-## 🚀 Features
+## 🚀 Try it now
 
-### Core Capabilities
-- ✅ **Video Conferencing** - High-quality peer-to-peer video calls via WebRTC
-- ✅ **Audio Streaming** - Crystal-clear audio with noise suppression
-- ✅ **Real-time Chat** - Instant messaging with timestamps
-- ✅ **Collaborative Whiteboard** - Real-time drawing canvas for presentations
-- ✅ **Screen Sharing** - Share your screen with participants
-- ✅ **Media Controls** - Mute/unmute and camera on/off
-- ✅ **Participant List** - View active participants and their status
-- ✅ **Room Management** - Create, join, and manage meeting rooms
-
-### Technical Features
-- ✅ Responsive Design - Works on desktop, tablet, and mobile
-- ✅ Real-time State Sync - All participants in sync
-- ✅ Room Capacity Management - Control maximum participants
-- ✅ Automatic Cleanup - Empty rooms auto-deleted
-- ✅ Error Handling - Graceful error management
-- ✅ Scalable Architecture - Ready for production deployment
-
----
-
-## 📋 System Requirements
-
-- **Node.js:** v14 or higher
-- **npm:** v6 or higher
-- **Browser:** Modern browser with WebRTC support
-  - Chrome 50+
-  - Firefox 45+
-  - Safari 11+
-  - Edge 79+
-
----
-
-## ⚡ Quick Start
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/quickmeet.git
-cd quickmeet
-
-# Install dependencies
+```
+git clone https://github.com/Aayush63777/web-meet.git
+cd web-meet
 npm install
-
-# Start the server
 npm start
 ```
 
-Server runs on `http://localhost:3000`
-
-### Development
-
-```bash
-# Start with auto-reload
-npm run dev
-
-# Run tests
-npm test
-```
+Open [http://localhost:3000](http://localhost:3000) in your browser.  
+To test multi-user, open a second browser window or profile and join the same room code.
 
 ---
 
-## 🏗️ Project Structure
+## 📸 Screenshots
 
-```
-quickmeet/
-├── index.js                  # Express server & Socket.io setup
-├── package.json              # Dependencies & scripts
-├── Dockerfile                # Docker configuration
-│
-├── server/
-│   └── roomStore.js          # Room state management
-│
-├── public/
-│   ├── index.html            # Landing page
-│   ├── room.html             # Meeting room page
-│   ├── js/
-│   │   ├── landing.js        # Landing page logic
-│   │   └── room.js           # Room & WebRTC logic
-│   └── css/
-│       ├── style.scss        # SCSS styling
-│       └── style.css         # Compiled CSS
-│
-└── tests/
-    └── roomStore.test.js     # Unit tests
-```
+### Landing page
+![Landing page](https://raw.githubusercontent.com/Aayush63777/web-meet/main/public/css/meet.png)
+
+| Join overlay | Share source picker |
+|---|---|
+| ![Join overlay](https://raw.githubusercontent.com/Aayush63777/web-meet/main/public/css/meet%202.png) | ![Share picker](https://raw.githubusercontent.com/Aayush63777/web-meet/main/public/css/meet%202.png) |
 
 ---
 
-## 🔧 Configuration
+## ✨ What makes QuickMeet special
 
-### Environment Variables
-
-Create a `.env` file:
-
-```env
-# Server Configuration
-PORT=3000
-NODE_ENV=production
-MAX_PARTICIPANTS=200
-
-# WebRTC Configuration
-STUN_SERVER=stun:stun.stunprotocol.org
-
-# Logging
-DEBUG=false
-```
-
-### Deploy on Vercel
-
-```bash
-# Deploy with Vercel CLI
-vercel deploy
-```
-
-Configuration in `vercel.json` handles deployment settings.
+- **No signup required** — just enter a name and join. Optionally protect rooms with a password.
+- **Real-time P2P video** via WebRTC — direct peer-to-peer media, server only handles signalling.
+- **Built-in Code IDE** — write and run JavaScript, Python, C++, Java, HTML, and CSS inside the meeting. No other video app has this.
+- **Collaborative Whiteboard** — draw, write text, undo/redo, adjust brush size, all synced live.
+- **Host controls** — the first person to join is the host. Mute participants, remove them, or end the meeting for everyone.
+- **Screen sharing** — share a window or entire screen. A pre-picker prevents the infinite mirror loop caused by sharing the meeting tab itself.
+- **Meeting recording** — record the entire tab (all participants) or just your own camera. Downloads as a `.webm` file with a timestamp filename.
+- **Settings modal** — switch microphone, camera, and speaker mid-call. Change video quality on the fly.
+- **Active speaker detection** — blue ring highlights whoever is speaking.
+- **Network quality indicator** — RTT-based signal strength shown in real time.
+- **Security hardened** — CORS restricted, Helmet headers, rate limiting, input validation, sandboxed IDE execution, SRI hashes on CDN assets.
 
 ---
 
-## 📖 Documentation
+## 📸 Feature screenshots
 
-- **[INSTALL.md](INSTALL.md)** - Detailed installation guide
-- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development setup and guidelines
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture overview
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+### Google Meet–style dark UI
+![Meeting room](https://raw.githubusercontent.com/Aayush63777/web-meet/main/public/css/meet.png)
 
----
+### Share source picker — prevents mirror loop
+Clicking **Present** shows this modal before the native browser picker opens.  
+Only "A Window" or "Entire Screen" are offered — tab sharing is blocked by design.
 
-## 🧪 Testing
+![Share picker](https://raw.githubusercontent.com/Aayush63777/web-meet/main/public/css/meet%202.png)
 
-```bash
-# Run all tests
-npm test
+### Built-in Code IDE
+Six languages, live execution, stdin support, line numbers, Ctrl+Enter to run.
 
-# Expected output
-✔ joinRoom tracks participants and state
-✔ updateParticipantState and leaveRoom keep room state in sync
-Tests: 2 passed
-```
+![IDE](https://raw.githubusercontent.com/Aayush63777/web-meet/main/public/css/meet%202.png)
 
 ---
 
-## 🐛 Known Issues
+## 🎮 Features
+
+### Video calling
+- Full P2P mesh via WebRTC (offer / answer / ICE signalling)
+- Camera and mic toggles — red circle when off (Google Meet style)
+- Camera-off overlay shows participant initials with a deterministic colour
+- Active speaker highlighted with a blue ring (AudioContext AnalyserNode)
+- Pin/spotlight any participant tile
+- Participant count badge, meeting timer, room code chip
+
+### Screen sharing
+- Pre-picker modal — user chooses "A Window" or "Entire Screen"
+- `selfBrowserSurface: 'exclude'` hides the current tab from Chrome's picker
+- Post-pick guard stops sharing if a browser tab was somehow selected
+- "You are presenting to everyone" banner with one-click Stop
+- Camera track saved and restored cleanly on stop — no permission re-prompt
+- Remote participants see a desktop badge on the presenter's tile
+
+### Collaborative whiteboard
+- Real-time drawing synced to all participants via Socket.IO
+- 8 colour swatches, brush size slider, pen / eraser / text tools
+- Undo (Ctrl+Z) and redo (Ctrl+Y) with 30-step history
+- Canvas state persisted — late joiners see the current board
+- Whiteboard opens beside the video grid (65 / 35 split)
+
+### Code IDE
+| Language | Execution | stdin |
+|---|---|---|
+| JavaScript | Browser sandboxed iframe (instant) | — |
+| Python 3 | Judge0 CE (free, no key needed) | ✅ |
+| C++ 17 | Judge0 CE | ✅ |
+| Java 17 | Judge0 CE | ✅ |
+| HTML | Live preview in new tab | — |
+| CSS | Injected preview in new tab | — |
+
+- Line numbers, cursor position display
+- Tab → 2 spaces, Ctrl+Enter to run
+- Execution time shown in ms
+- Sandboxed JS — cannot reach outer DOM or socket
+
+### Meeting recording
+- Source picker: "Entire tab" (all participants) or "Camera & mic only"
+- Best codec auto-selected: `vp9+opus → vp8+opus → h264+opus → webm`
+- 2.5 Mbps video, 128 kbps audio
+- Live REC banner with elapsed timer and Stop button
+- All participants notified via "This call is being recorded" bar
+- Auto-downloads as `QuickMeet_YYYY-MM-DD_HH-MM-SS.webm`
+
+### Host controls
+- First joiner automatically becomes host (HOST badge on their tile)
+- Mute any participant individually
+- Mute all participants at once
+- Remove a participant from the call
+- End the meeting for everyone
+- Configurable room capacity (2–1000)
+
+### Chat & People
+- Real-time group chat with sender name and timestamp
+- Unread message badge (resets on viewing Chat tab)
+- Emoji picker (20 emoji)
+- People panel shows avatar initials, mic/camera status, raised-hand indicator
+- Host sees mute and remove buttons per participant
+- Invite link button copies the full join URL to clipboard
+
+### Settings
+- Microphone, camera, and speaker device selectors
+- Video quality: Auto / HD (720p) / SD (360p)
+- Host capacity and end-meeting controls in the same modal
 
 ### Security
-- **XSS in Chat:** User messages need additional sanitization
-  - **Status:** ⚠️ Identified
-  - **Fix:** Implement HTML sanitization
-
-### Code Quality
-- **Code Duplication:** Video element creation logic repeated
-- **Error Handling:** WebRTC errors need better handling
-- **Hardcoded URLs:** External service URLs should be configurable
+- CORS restricted to `CORS_ORIGIN` env var
+- HTTP security headers via Helmet 8 (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `HSTS`, `X-Powered-By` removed)
+- Per-socket rate limiting on all socket events (sliding window)
+- Canvas blobs rejected if > 5 MB
+- Draw event data validated before rebroadcast (finite coords, color regex, size range)
+- Username length enforced server-side (40 chars)
+- Room ID validated with `/^[\w-]{4,64}$/` on both client and server
+- Socket IDs never exposed via public API
+- IDE runs in `sandbox="allow-scripts"` iframe — user code cannot reach outer DOM
+- SRI integrity hash on Font Awesome CDN
+- All dependency versions pinned exactly
 
 ---
 
-## 🚀 Deployment
+## 🏗️ Project structure
 
-### Docker
-
-```bash
-# Build image
-docker build -t quickmeet .
-
-# Run container
-docker run -p 3000:3000 quickmeet
+```
+web-meet/
+├── index.js                # Express + Socket.IO server, all event handlers
+├── package.json            # Pinned dependencies
+├── server/
+│   └── roomStore.js        # In-memory room, participant, and whiteboard state
+├── tests/
+│   └── roomStore.test.js   # Unit tests (node --test)
+├── public/
+│   ├── index.html          # Landing page
+│   ├── room.html           # Meeting room UI
+│   ├── js/
+│   │   ├── landing.js      # Landing page logic
+│   │   └── room.js         # WebRTC, signalling, all features (~2 300 lines)
+│   └── css/
+│       └── style.css       # Google Meet–style dark theme (~1 800 lines)
+├── .env.example            # Environment variable template
+├── Dockerfile              # Container build
+└── vercel.json             # Vercel deployment config
 ```
 
-### Vercel
+---
+
+## ⚙️ Quick start
+
+**Requirements:** Node.js ≥ 14, npm ≥ 6
 
 ```bash
-# Deploy
-vercel deploy
+# 1. Clone
+git clone https://github.com/Aayush63777/web-meet.git
+cd web-meet
 
-# View live
-vercel --prod
-```
+# 2. Install
+npm install
 
-### Traditional Hosting
-
-```bash
-# Build
-npm install --production
-
-# Start
+# 3. Start
 npm start
+# → http://localhost:3000
+
+# Development (auto-restart)
+npm run dev
+```
+
+To test multi-user locally, open the same room URL in a second browser window or an incognito tab.
+
+---
+
+## 🌐 Environment variables
+
+Copy `.env.example` to `.env` and set values before deploying:
+
+```env
+PORT=3000
+CORS_ORIGIN=https://your-domain.com
+MAX_PARTICIPANTS=200
+SESSION_SECRET=   # generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ---
 
-## 📊 Performance
+## 🔑 Keyboard shortcuts
 
-- **Server Startup:** ~500ms
-- **Page Load:** ~1-2 seconds
-- **WebRTC Connection:** ~2-5 seconds
-- **Scalability:** ~500-1000 concurrent rooms
-- **Memory Usage:** ~50-75MB idle
-
----
-
-## 🔐 Security Considerations
-
-### Current Implementation
-- ✅ Socket.io authentication ready
-- ✅ Express rate limiting compatible
-- ✅ HTTPS ready for deployment
-- ⚠️ XSS protection needed for chat
-- ⚠️ Input validation recommended
-
-### Recommended Hardening
-1. Enable HTTPS in production
-2. Implement CORS properly
-3. Add rate limiting
-4. Sanitize user input
-5. Add authentication
-6. Use environment variables for secrets
+| Key | Action |
+|-----|--------|
+| `M` | Mute / unmute mic |
+| `V` | Turn camera on / off |
+| `S` | Start / stop screen share |
+| `H` | Raise / lower hand |
+| `W` | Open / close whiteboard |
+| `I` | Open / close Code IDE |
+| `R` | Start / stop recording |
+| `L` | Leave call |
+| `Ctrl+Enter` | Run code in IDE |
+| `Ctrl+Z` | Undo whiteboard stroke |
+| `Ctrl+Y` | Redo whiteboard stroke |
 
 ---
 
-## 🤝 Contributing
+## 🧪 Tests
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Write tests
-5. Submit a pull request
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
----
-
-## 📝 API Documentation
-
-### REST Endpoints
-
-```
-GET /api/rooms/:roomId
-  Returns room information and participants
-  Response: { roomId, participantCount, participants[] }
+```bash
+npm test
 ```
 
-### Socket.io Events
-
-| Event | Sender | Receiver | Data |
-|-------|--------|----------|------|
-| `join room` | Client | Server | { roomid, username } |
-| `message` | Client | Server | { msg, username, roomid } |
-| `video-offer` | Client | Peer | { offer, socketId } |
-| `video-answer` | Client | Peer | { answer, socketId } |
-| `new icecandidate` | Client | Peer | { candidate, socketId } |
-| `action` | Client | Peers | { msg, socketId } (mute/videoon/etc) |
-| `draw` | Client | Peers | { x, y, color, size } |
-| `room update` | Server | Clients | { roomInfo } |
+Runs the built-in `node --test` suite against `server/roomStore.js`.
 
 ---
 
-## 📈 Roadmap
+## 🔍 Development notes
 
-### v1.1
-- [ ] User authentication
-- [ ] Message persistence
-- [ ] User profiles
-- [ ] Call history
-
-### v1.2
-- [ ] Recording capability
-- [ ] Virtual backgrounds
-- [ ] Hand raise feature
-- [ ] Meeting reactions
-
-### v2.0
-- [ ] Mobile app
-- [ ] Advanced analytics
-- [ ] Enterprise features
-- [ ] SSO integration
+- The server is stateful (in-memory `RoomStore`) — run as a **single process**. Multiple workers will split room state.
+- WebRTC uses a P2P mesh topology. It works well for 2–4 participants; beyond that consider adding a media server (mediasoup, LiveKit).
+- Only Google STUN servers are configured. Behind strict NAT, calls may fail without a TURN server.
+- The `CORS_ORIGIN` default is `http://localhost:3000`. Set it to your production domain before deploying.
+- `http://localhost` always shows Chrome's "Not secure" warning — this is normal for local HTTP development and does not affect functionality.
 
 ---
 
-## 📝 License
+## 📄 License
 
-MIT License - See [LICENSE](LICENSE) file for details
+MIT © 2026 [Aayush63777](https://github.com/Aayush63777)
 
----
-
-## 👥 Credits
-
-Built with:
-- [Express.js](https://expressjs.com/) - Web framework
-- [Socket.io](https://socket.io/) - Real-time communication
-- [WebRTC](https://webrtc.org/) - Peer-to-peer media
-- [Moment.js](https://momentjs.com/) - Date/time handling
-
----
-
-## 📞 Support & Contact
-
-For issues, questions, or suggestions:
-- Create an [Issue](https://github.com/yourusername/quickmeet/issues)
-- Check [Discussions](https://github.com/yourusername/quickmeet/discussions)
-- Email: support@quickmeet.app
-
----
-
-## 🎯 Project Status
-
-| Category | Status | Notes |
-|----------|--------|-------|
-| **Development** | ✅ Active | Regular updates |
-| **Testing** | ✅ Unit tested | 2/2 tests passing |
-| **Production** | ✅ Ready | With security patches |
-| **Documentation** | ✅ Complete | Professional docs |
-| **Support** | ✅ Available | Community support |
-
----
-
-**Last Updated:** August 11, 2026  
-**Version:** 1.0.0  
-**Status:** Production Ready ✅
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software, to use, copy, modify, merge, publish, distribute, and sublicense it, subject to the conditions of the MIT License.

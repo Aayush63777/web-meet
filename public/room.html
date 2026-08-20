@@ -7,7 +7,7 @@
     <title>QuickMeet — Room</title>
     <!-- Inline SVG favicon — prevents 404 on /favicon.ico -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>">
-    <link rel="stylesheet" href="css/style.css?v=20260817">
+    <link rel="stylesheet" href="css/style.css?v=20260821">
     <!-- FIX #9: SRI hash locks this CDN resource to the exact file we audited -->
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -38,6 +38,7 @@
         <input  type="password"
                 class="name-field"
                 id="room-password"
+                name="room-password"
                 placeholder="Room password (if required)"
                 autocomplete="off"
                 maxlength="100"
@@ -163,7 +164,7 @@
                     <!-- Brush size slider -->
                     <div class="wb-size-wrap" title="Brush size">
                         <i class="fas fa-circle" style="font-size:6px;color:#9aa0a6"></i>
-                        <input type="range" id="wb-size" min="1" max="30" value="3" class="wb-size-slider">
+                        <input type="range" id="wb-size" name="wb-size" min="1" max="30" value="3" class="wb-size-slider">
                         <i class="fas fa-circle" style="font-size:14px;color:#9aa0a6"></i>
                     </div>
                     <div class="wb-sep"></div>
@@ -252,14 +253,8 @@
 
             </div><!-- /tbar-center -->
 
-            <!-- Right: capacity -->
-            <div class="tbar-right">
-                <div class="capacity-wrap">
-                    <span class="capacity-info" id="capacity-info">Max 200</span>
-                    <input type="number" id="capacity-input" min="2" max="500" value="200">
-                    <button id="capacity-apply">Set</button>
-                </div>
-            </div>
+            <!-- Right: empty — capacity moved to Settings modal -->
+            <div class="tbar-right"></div>
 
         </div><!-- /toolbar -->
 
@@ -484,22 +479,22 @@
                 <h4>Audio</h4>
                 <div class="setting-row">
                     <label>Microphone</label>
-                    <select id="sel-mic" class="device-select"></select>
+                    <select id="sel-mic" name="sel-mic" class="device-select"></select>
                 </div>
                 <div class="setting-row">
                     <label>Speaker</label>
-                    <select id="sel-speaker" class="device-select"></select>
+                    <select id="sel-speaker" name="sel-speaker" class="device-select"></select>
                 </div>
             </div>
             <div class="settings-section">
                 <h4>Video</h4>
                 <div class="setting-row">
                     <label>Camera</label>
-                    <select id="sel-cam" class="device-select"></select>
+                    <select id="sel-cam" name="sel-cam" class="device-select"></select>
                 </div>
                 <div class="setting-row">
                     <label>Quality</label>
-                    <select id="sel-quality" class="device-select">
+                    <select id="sel-quality" name="sel-quality" class="device-select">
                         <option value="auto">Auto</option>
                         <option value="hd">HD (720p)</option>
                         <option value="sd">SD (360p)</option>
@@ -511,7 +506,7 @@
                 <div class="setting-row">
                     <label>Room capacity</label>
                     <div style="display:flex;gap:6px;align-items:center">
-                        <input type="number" id="capacity-input" min="2" max="500" value="200" class="capacity-input-field">
+                        <input type="number" id="capacity-input" name="capacity-input" min="2" max="500" value="200" class="capacity-input-field">
                         <button id="capacity-apply" class="small-btn">Set</button>
                         <span class="capacity-info" id="capacity-info">Max 200</span>
                     </div>
@@ -534,7 +529,7 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="js/room.js?v=20260818"></script>
+<script src="js/room.js?v=20260820"></script>
 <script>
 /* ── Meeting clock (dual: topbar + toolbar) ── */
 (function () {
