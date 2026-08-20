@@ -35,22 +35,15 @@ To test multi-user locally, open the same room URL in a second browser window or
 ### Join overlay
 ![Join overlay](assets/screenshots/join-overlay.png)
 
-### Meeting room
-![Meeting room](assets/screenshots/meeting-room.png)
-
-### Screen share source picker
-![Screen share picker](assets/screenshots/share-picker.png)
+| Share source picker | Chrome screen picker |
+|---|---|
+| ![Share picker](assets/screenshots/share-picker.png) | ![Chrome picker](assets/screenshots/chrome-share-picker.png) |
 
 ### Active screen sharing
 ![Screen sharing](assets/screenshots/screen-sharing.png)
 
 ### Built-in Code IDE
 ![Code IDE](assets/screenshots/ide.png)
-
-> **To add screenshots:** Take a screenshot of each view, save them in `assets/screenshots/` with the filenames above, then commit and push.
-
----
-
 ## ✨ What makes QuickMeet special
 
 - **No signup required** — enter a name and join instantly. Optionally protect rooms with a password.
@@ -170,7 +163,13 @@ web-meet/
 │   └── css/
 │       └── style.css         # Google Meet-style dark theme
 ├── assets/
-│   └── screenshots/          # README screenshots (add your own here)
+│   └── screenshots/          # README screenshots
+│       ├── landing.png        # Landing page
+│       ├── join-overlay.png   # Join overlay card
+│       ├── share-picker.png   # Share source picker modal
+│       ├── chrome-share-picker.png  # Chrome's screen picker
+│       ├── screen-sharing.png # Active screen share
+│       └── ide.png            # Code IDE panel
 ├── .env.example              # Environment variable template
 ├── Dockerfile                # Container build
 └── vercel.json               # Vercel deployment config
